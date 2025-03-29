@@ -1,25 +1,11 @@
-{% extends 'layouts/base.html' %}
-
-{% set page_title = 'Home' %}
-
-{% block css %}
-{% endblock %}
-
-{% block container %}
-<div class="container" id="setup">
-    <div class="jumbotron">
-        <div class="hero-unit">
-            <h1>AlarmDecoder</h1>
-            <p>Web-based keypad and notifications for your AlarmDecoder device.</p>
-                    <br>
-            <p><a href="{{ url_for('frontend.login')}}" class="btn btn-success btn-large"><strong>Sign in »</strong></a></p>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block appjs %}
-{% endblock %}
-
-{% block js_btm %}
-{% endblock %}
+<!-- ad2web/templates/index.html -->
+<!doctype html>
+<html>
+<head>
+  <title>AlarmDecoder Dashboard</title>
+</head>
+<body>
+  <h1>AlarmDecoder Status</h1>
+  <pre>{{ panel_status }}</pre>
+</body>
+</html>

@@ -11,3 +11,6 @@ login_manager = LoginManager()
 
 from flask_openid import OpenID
 oid = OpenID()
+
+from flask_babelplus import Babel
+babel = Babel()

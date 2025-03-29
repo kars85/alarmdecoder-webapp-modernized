@@ -15,7 +15,7 @@ from datetime import datetime
 
 # Instance folder path, make it independent.
 INSTANCE_FOLDER_PATH = os.path.join('/opt', 'alarmdecoder-webapp', 'instance')
-
+LOG_FOLDER = os.path.join(INSTANCE_FOLDER_PATH, 'logs')
 ALLOWED_AVATAR_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
 
 # Form validation
@@ -40,9 +40,9 @@ MALE = 1
 FEMALE = 2
 OTHER = 9
 SEX_TYPE = {
-    MALE: u'Male',
-    FEMALE: u'Female',
-    OTHER: u'Other',
+    MALE: 'Male',
+    FEMALE: 'Female',
+    OTHER: 'Other',
 }
 
 # Model
@@ -67,24 +67,23 @@ def pretty_date(dt, default=None):
     diff = now - dt
 
     periods = (
-        (diff.days / 365, 'year', 'years'),
-        (diff.days / 30, 'month', 'months'),
-        (diff.days / 7, 'week', 'weeks'),
+        (diff.days // 365, 'year', 'years'),
+        (diff.days // 30, 'month', 'months'),
+        (diff.days // 7, 'week', 'weeks'),
         (diff.days, 'day', 'days'),
-        (diff.seconds / 3600, 'hour', 'hours'),
-        (diff.seconds / 60, 'minute', 'minutes'),
+        (diff.seconds // 3600, 'hour', 'hours'),
+        (diff.seconds // 60, 'minute', 'minutes'),
         (diff.seconds, 'second', 'seconds'),
     )
 
     for period, singular, plural in periods:
-
         if not period:
             continue
 
         if period == 1:
-            return u'%d %s ago' % (period, singular)
+            return '%d %s ago' % (period, singular)
         else:
-            return u'%d %s ago' % (period, plural)
+            return '%d %s ago' % (period, plural)
 
     return default
 
@@ -102,7 +101,7 @@ def make_dir(dir_path):
     try:
         if not os.path.exists(dir_path):
             os.mkdir(dir_path)
-    except Exception, e:
+    except Exception as e:
         raise e
 
 
@@ -110,7 +109,7 @@ def tar_add_directory(tar, name):
     ti = tarfile.TarInfo(name=name)
     ti.mtime = time.time()
     ti.type = tarfile.DIRTYPE
-    ti.mode = 0755
+    ti.mode = 0o755
     tar.addfile(ti)
 
 
@@ -123,7 +122,9 @@ def tar_add_textfile(tar, name, data, parent_path=None):
     ti.mtime = time.time()
     ti.size = len(data)
 
+    # Wrap the bytes in a TextIOWrapper for ascii encoding.
     tar.addfile(ti, io.TextIOWrapper(buffer=io.BytesIO(data), encoding='ascii'))
+
 
 # Wrappers to support older versions of Flask-Login alongside newer ones
 def user_is_authenticated(user):
@@ -134,6 +135,7 @@ def user_is_authenticated(user):
         return user.is_authenticated()
     else:
         return user.is_authenticated
+
 
 def user_is_anonymous(user):
     if user is None:
