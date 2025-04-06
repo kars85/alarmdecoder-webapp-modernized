@@ -1,6 +1,6 @@
 import os
 
-import ConfigParser
+import configparser
 import psutil
 import signal
 import sh
@@ -84,7 +84,7 @@ def start():
     """
     try:
         sh.ser2sock('-d', _bg=True)
-    except sh.CommandNotFound, err:
+    except sh.CommandNotFound as err:
         raise NotFound('Could not locate ser2sock.')
 
 def stop():
@@ -106,7 +106,7 @@ def hup():
             if proc.name() == 'ser2sock':
                 found = True
                 os.kill(proc.pid, signal.SIGHUP)
-        except OSError, err:
+        except OSError as err:
             raise HupFailed('Error attempting to restart ser2sock (pid {0}): {1}'.format(proc.pid, err))
 
     if not found:
@@ -150,7 +150,7 @@ def update_config(path, *args, **kwargs):
             if 'encrypted' in config_values and config_values['encrypted'] == 1:
                 cert_path = os.path.join(path, 'certs')
                 if not os.path.exists(cert_path):
-                    os.mkdir(cert_path, 0700)
+                    os.mkdir(cert_path, 0o700)
 
                 ca_cert = kwargs['ca_cert'] if 'ca_cert' in kwargs.keys() else None
                 server_cert = kwargs['server_cert'] if 'server_cert' in kwargs.keys() else None
@@ -166,5 +166,5 @@ def update_config(path, *args, **kwargs):
             save_config(os.path.join(path, 'ser2sock.conf'), config_values)
             hup()
 
-    except (OSError, IOError), err:
+    except (OSError, IOError) as err:
         raise RuntimeError('Error updating ser2sock configuration: {0}'.format(err))

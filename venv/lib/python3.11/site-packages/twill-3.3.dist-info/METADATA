@@ -1,0 +1,85 @@
+Metadata-Version: 2.1
+Name: twill
+Version: 3.3
+Summary: A web browsing and testing language
+Author: C. Titus Brown, Ben R. Taylor, Christoph Zwerschke
+Maintainer-email: Christoph Zwerschke <cito@online.de>
+License: The MIT License, https://opensource.org/licenses/MIT
+        
+        Copyright 2005-2024 by C. Titus Brown, Ben R. Taylor, Christoph Zwerschke
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in
+        all copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+        THE SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/twill-tools/twill
+Project-URL: Issues, https://github.com/twill-tools/twill/issues
+Project-URL: Documentation, https://twill-tools.github.io/twill/
+Project-URL: Source, https://github.com/twill-tools/twill
+Project-URL: ChangeLog, https://twill-tools.github.io/twill/changelog.html
+Project-URL: Download, https://pypi.org/project/twill/
+Keywords: web,testing,browsing,automation
+Classifier: Development Status :: 6 - Mature
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Other Scripting Engines
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: lxml <6,>=5.2
+Requires-Dist: httpx <1,>=0.27.0
+Requires-Dist: pyparsing <4,>=3.1
+Provides-Extra: docs
+Requires-Dist: sphinx <9,>=8.1 ; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme <4,>=3 ; extra == 'docs'
+Provides-Extra: tests
+Requires-Dist: tox <5,>=4 ; extra == 'tests'
+Requires-Dist: pytest <9,>=8 ; extra == 'tests'
+Requires-Dist: pytidylib <0.4,>=0.3 ; extra == 'tests'
+Requires-Dist: flask <4,>=3.0 ; extra == 'tests'
+Provides-Extra: tidy
+Requires-Dist: pytidylib <0.4,>=0.3 ; extra == 'tidy'
+
+twill: a simple scripting language for web browsing
+===================================================
+
+twill is a simple scripting language intended for programmatic or automated browsing of websites.
+
+The current version 3.2 supports Python 3.8 to 3.12.
+
+Take a look at the [changelog](https://twill-tools.github.io/twill/changelog.html) to find a list of all changes and improvements made since version 2. For a brief overview of twill's history starting from its early days, see the [acknowledgements and history](https://twill-tools.github.io/twill/overview.html#acknowledgements-and-history) section.
+
+The full [documentation](https://twill-tools.github.io/twill/) is included in the distribution and provided online via [GitHub](https://twill-tools.github.io/twill/) and [ReadTheDocs](https://twill.readthedocs.io/en/latest/).
+
+Copyright (c) 2005-2024 by C. Titus Brown, Ben R. Taylor, Christoph Zwerschke et al.
+
+Newer versions have been created and are maintained by [Christoph Zwerschke](https://github.com/Cito).
+ 
+twill is available for use, modification, and distribution under the MIT license.

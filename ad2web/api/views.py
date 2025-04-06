@@ -7,7 +7,7 @@ import socket
 
 from functools import wraps
 from datetime import timedelta
-from httplib import OK, CREATED, ACCEPTED, NO_CONTENT, UNAUTHORIZED, NOT_FOUND, CONFLICT, UNPROCESSABLE_ENTITY, SERVICE_UNAVAILABLE
+from http.client import OK, CREATED, ACCEPTED, NO_CONTENT, UNAUTHORIZED, NOT_FOUND, CONFLICT, UNPROCESSABLE_ENTITY, SERVICE_UNAVAILABLE
 
 from flask import Blueprint, current_app, request, jsonify, abort, Response, render_template, redirect, url_for
 from flask_login import login_user, current_user, logout_user, login_required
@@ -15,11 +15,11 @@ from flask_login import login_user, current_user, logout_user, login_required
 from alarmdecoder import AlarmDecoder
 from alarmdecoder.panels import ADEMCO, DSC, PANEL_TYPES
 from alarmdecoder.zonetracking import Zone as ADZone
-
+#from ..common.models import User, USER_ROLE, USER_STATUS, ADMIN
 from ..extensions import db
 from ..decorators import admin_required, crossdomain
 
-from ..user import User, USER_ROLE, USER_STATUS, ADMIN
+import importlib
 from ..zones import Zone
 from ..notifications import Notification, NotificationSetting
 from ..notifications.constants import EVENT_TYPES
@@ -32,6 +32,10 @@ from .constants import ERROR_NOT_AUTHORIZED, ERROR_DEVICE_NOT_INITIALIZED, ERROR
 from .models import APIKey
 from .forms import APIKeyForm
 from .utils import generate_api_key
+# Function to dynamically import User and related constants
+def get_user_and_detail():
+    user_module = importlib.import_module('ad2web.user')
+    return user_module.User, user_module.USER_ROLE, user_module.USER_STATUS, user_module.ADMIN
 
 api_settings = Blueprint('api_settings', __name__, url_prefix='/api')
 api = Blueprint('api', __name__, url_prefix='/api/v1')
@@ -68,6 +72,8 @@ def swagger():
 @login_required
 @admin_required
 def keys():
+    # Call the function to get constants dynamically when needed
+    User, UserDetail, USER_ROLE, USER_STATUS, ADMIN = get_user_and_detail()
     users = User.query.all()
 
     return render_template('api/keys.html', users=users)
@@ -76,6 +82,7 @@ def keys():
 @login_required
 @admin_required
 def generate_key(user_id):
+    
     apikey = APIKey.query.filter_by(user_id=user_id).first()
     if not apikey:
         apikey = APIKey(user_id=user_id)
@@ -91,6 +98,7 @@ def generate_key(user_id):
 @login_required
 @admin_required
 def disable_key(user_id):
+    
     apikey = APIKey.query.filter_by(user_id=user_id).first()
     if not apikey:
         apikey = APIKey(user_id=user_id)
@@ -104,8 +112,11 @@ def disable_key(user_id):
 
 ##### Utility
 def api_authorized(f):
+    
     @wraps(f)
     def wrapped(*args, **kwargs):
+        # Call the function to get constants dynamically when needed
+        User, UserDetail, USER_ROLE, USER_STATUS, ADMIN = get_user_and_detail()
         global request_user
         request_user = None
 
@@ -145,6 +156,7 @@ def build_error(code, message):
     }
 
 def check_admin(user):
+    
     if not user:
         return False
 
@@ -280,6 +292,7 @@ def alarmdecoder_events():
 @crossdomain(origin="*", headers=['Content-type', 'api_key', 'Authorization'])
 @api_authorized
 def alarmdecoder_reboot():
+    
     if not check_admin(request_user):
         return jsonify(build_error(ERROR_NOT_AUTHORIZED, "Insufficient privileges for request.")), UNAUTHORIZED
 
@@ -376,6 +389,7 @@ def _build_zone_data(zone, short=False):
 @crossdomain(origin="*", headers=['Content-type', 'api_key', 'Authorization'])
 @api_authorized
 def zones():
+    
     if request.method == 'GET':
         ret = {}
         zones = Zone.query.all()
@@ -419,6 +433,7 @@ def zones():
 @crossdomain(origin="*", headers=['Content-type', 'api_key', 'Authorization'])
 @api_authorized
 def zones_by_id(id):
+    
     zone = Zone.query.filter_by(zone_id=id).first()
     if zone is None:
         return jsonify(build_error(ERROR_RECORD_DOES_NOT_EXIST, 'Zone does not exist.')), NOT_FOUND
@@ -471,6 +486,7 @@ def zones_by_id(id):
 @crossdomain(origin="*", headers=['Content-type', 'api_key', 'Authorization'])
 @api_authorized
 def zones_fault(id):
+    
     if not check_admin(request_user):
         return jsonify(build_error(ERROR_NOT_AUTHORIZED, "Insufficient privileges for request.")), UNAUTHORIZED
 
@@ -487,6 +503,7 @@ def zones_fault(id):
 @crossdomain(origin="*", headers=['Content-type', 'api_key', 'Authorization'])
 @api_authorized
 def zones_restore(id):
+    
     if not check_admin(request_user):
         return jsonify(build_error(ERROR_NOT_AUTHORIZED, "Insufficient privileges for request.")), UNAUTHORIZED
 
@@ -779,6 +796,7 @@ def cameras_by_id(id):
 
 ##### User routes
 def _build_user_data(user, short=False):
+    
     if not user:
         return None
 
@@ -797,6 +815,8 @@ def _build_user_data(user, short=False):
 @crossdomain(origin="*", headers=['Content-type', 'api_key', 'Authorization'])
 @api_authorized
 def users():
+    # Call the function to get constants dynamically when needed
+    User, UserDetail, USER_ROLE, USER_STATUS, ADMIN = get_user_and_detail()
     if not check_admin(request_user):
         return jsonify(build_error(ERROR_NOT_AUTHORIZED, "Insufficient privileges for request.")), UNAUTHORIZED
 
@@ -862,6 +882,8 @@ def users():
 @crossdomain(origin="*", headers=['Content-type', 'api_key', 'Authorization'])
 @api_authorized
 def users_by_id(id):
+    # Call the function to get constants dynamically when needed
+    User, UserDetail, USER_ROLE, USER_STATUS, ADMIN = get_user_and_detail()
     ret = { }
 
     user = User.query.filter_by(id=id).first()

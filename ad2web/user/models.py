@@ -1,14 +1,19 @@
 # -*- coding: utf-8 -*-
-
+#/user/models.py
 from sqlalchemy import Column, types
 from sqlalchemy.ext.mutable import Mutable
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
-
+from ad2web.certificate.models import Certificate
+import importlib
 from ..extensions import db
 from ..utils import get_current_time, SEX_TYPE, STRING_LEN
 from .constants import USER, USER_ROLE, ADMIN, INACTIVE, USER_STATUS
 
+# Function to dynamically import User and related constants
+def get_user_related_constants():
+    user_module = importlib.import_module('ad2web.user')
+    return user_module.User, user_module.USER_ROLE, user_module.USER_STATUS, user_module.ADMIN
 
 class DenormalizedText(Mutable, types.TypeDecorator):
     """
@@ -112,6 +117,7 @@ class User(db.Model, UserMixin):
                                               _set_password))
 
     def check_password(self, password):
+        User, USER_ROLE, USER_STATUS, ADMIN = get_user_related_constants()
         if self.password is None:
             return False
         return check_password_hash(self.password, password)
@@ -121,6 +127,7 @@ class User(db.Model, UserMixin):
 
     @property
     def role(self):
+        User, USER_ROLE, USER_STATUS, ADMIN = get_user_related_constants()
         return USER_ROLE[self.role_code]
 
     def is_admin(self):
@@ -132,6 +139,7 @@ class User(db.Model, UserMixin):
 
     @property
     def status(self):
+        User, USER_ROLE, USER_STATUS, ADMIN = get_user_related_constants()
         return USER_STATUS[self.status_code]
 
     # ================================================================
@@ -202,4 +210,5 @@ class User(db.Model, UserMixin):
         return cls.query.filter_by(id=user_id).first_or_404()
 
     def check_name(self, name):
+        User, USER_ROLE, USER_STATUS, ADMIN = get_user_related_constants()
         return User.query.filter(db.and_(User.name == name, User.email != self.id)).count() == 0

@@ -11,7 +11,7 @@ from flask_login import login_required, current_user
 from ..extensions import db
 from ..decorators import admin_required, admin_or_first_run_required
 from ..settings.models import Setting
-from ..certificate.models import Certificate
+
 from ..certificate.constants import CA, SERVER, CLIENT, INTERNAL, ACTIVE as CERT_ACTIVE
 from .forms import (DeviceTypeForm, NetworkDeviceForm, LocalDeviceForm,
                    SSLForm, SSLHostForm, DeviceForm, TestDeviceForm, CreateAccountForm, LocalDeviceFormUSB)
@@ -19,7 +19,7 @@ from .constants import (SETUP_TYPE, SETUP_LOCATION, SETUP_NETWORK,
                     SETUP_LOCAL, SETUP_DEVICE, SETUP_TEST, SETUP_COMPLETE, BAUDRATES,
                     DEFAULT_BAUDRATES, DEFAULT_PATHS, SETUP_ENDPOINT_STAGE)
 from ..ser2sock import ser2sock
-from ..user.models import User
+
 from ..user.constants import ADMIN as USER_ADMIN, ACTIVE as USER_ACTIVE
 from alarmdecoder.panels import ADEMCO, DSC
 
@@ -224,6 +224,7 @@ def network():
 @setup.route('/sslclient', methods=['GET', 'POST'])
 @admin_or_first_run_required
 def sslclient():
+    from ..certificate.models import Certificate
     form = SSLForm()
     form.multipart = True
     if form.validate_on_submit():
@@ -322,16 +323,16 @@ def sslserver():
 
             ser2sock.update_config(config_path.value, **config_settings)
 
-        except RuntimeError, err:
+        except RuntimeError as err:
             flash("{0}".format(err), 'error')
 
-        except ser2sock.HupFailed, err:
+        except ser2sock.HupFailed as err:
             flash("We had an issue restarting ser2sock: {0}".format(err), 'error')
 
-        except ser2sock.NotFound, err:
+        except ser2sock.NotFound as err:
             flash("We weren't able to find ser2sock on your system.", 'error')
 
-        except Exception, err:
+        except Exception as err:
             flash("Unexpected Error: {0}".format(err), 'error')
 
         else:
@@ -340,6 +341,7 @@ def sslserver():
     return render_template('setup/ssl.html', form=form)
 
 def _generate_certs():
+    from ..certificate.models import Certificate
     if Certificate.query.filter_by(type=CA).first() is None:
         ca_cert = Certificate(
                     name="AlarmDecoder CA",
@@ -395,6 +397,7 @@ def test():
 @setup.route('/account', methods=['GET', 'POST'])
 @admin_or_first_run_required
 def account():
+    from ..user.models import User
     form = CreateAccountForm()
 
     if form.validate_on_submit():

@@ -37,18 +37,23 @@ class DefaultConfig(BaseConfig):
     MAIL_PORT = 25
     MAIL_USERNAME = ''
     MAIL_PASSWORD = ''
-    MAIL_DEFAULT_SENDER = 'root@localhost'
-
+    MAIL_DEFAULT_SENDER = 'test@example.com'
+    MAIL_SUPPRESS_SEND = True
     OPENID_FS_STORE_PATH = os.path.join(INSTANCE_FOLDER_PATH, 'openid')
     ALARMDECODER_LIBRARY_PATH = os.path.join('/opt', 'alarmdecoder')
 
 
-class TestConfig:
+# In ad2web/config.py
+class TestConfig(BaseConfig): # Make sure it inherits if needed, or define all needed keys
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite://'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:' # Or 'sqlite://'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     WTF_CSRF_ENABLED = False
     SECRET_KEY = 'test'
+    # ---> ADD THESE <---
+    MAIL_SUPPRESS_SEND = True   # Don't send emails during tests
+    MAIL_DEFAULT_SENDER = 'test@testing.com' # Provide a default
+    # Add any other MAIL_ settings needed by your app/extensions, even if suppressing send
 
 
 class ProductionConfig(BaseConfig):

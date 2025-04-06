@@ -15,7 +15,7 @@ try:
 except ImportError:
     hasnetifaces = 0
 import sh
-import compiler
+#import compiler
 import sys
 import types
 import importlib
@@ -27,9 +27,10 @@ try:
 except ImportError:
     has_upnp = False
 
-from compiler.ast import Discard, Const
-from compiler.visitor import ASTVisitor
-
+#from compiler.ast import Discard, Const
+#from compiler.visitor import ASTVisitor
+# In ad2web/settings/views.py
+import importlib
 from datetime import datetime, timedelta
 
 from flask import Blueprint, render_template, current_app, request, flash, Response, url_for, redirect
@@ -41,14 +42,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from alarmdecoder.panels import ADEMCO, DSC, PANEL_TYPES
 from ..ser2sock import ser2sock
 from ..extensions import db
-from ..user import User, UserDetail
+
 from ..utils import allowed_file, make_dir, tar_add_directory, tar_add_textfile, INSTANCE_FOLDER_PATH
 from ..decorators import admin_required
 from ..settings import Setting
 from .forms import ProfileForm, PasswordForm, ImportSettingsForm, HostSettingsForm, EthernetSelectionForm, EthernetConfigureForm, SwitchBranchForm, EmailConfigureForm, UPNPForm, VersionCheckerForm, ExportConfigureForm
 from ..setup.forms import DeviceTypeForm, LocalDeviceForm, NetworkDeviceForm
-from .constants import NETWORK_DEVICE, SERIAL_DEVICE, EXPORT_MAP, HOSTS_FILE, HOSTNAME_FILE, NETWORK_FILE, KNOWN_MODULES, DAILY, IP_CHECK_SERVER_URL
-from ..certificate import Certificate, CA, SERVER
+from .constants import NETWORK_DEVICE, SERIAL_DEVICE, HOSTS_FILE, HOSTNAME_FILE, NETWORK_FILE, KNOWN_MODULES, DAILY, IP_CHECK_SERVER_URL
+#from ..certificate import Certificate, CA, SERVER
 from ..notifications import Notification, NotificationSetting
 from ..zones import Zone
 from ..upnp import UPNP
@@ -61,10 +62,19 @@ try:
 except ImportError:
     hasservice = False
 
-import urllib2
+#import urllib2
 import ssl
+# ADD THIS IMPORT near the top of ad2web/settings/views.py
+from urllib.request import urlopen
+# You already import ssl, so that's fine
+import ssl
+import json # Ensure json is imported if not already
 
 settings = Blueprint('settings', __name__, url_prefix='/settings')
+
+def get_user_related_constants():
+    user_module = importlib.import_module('ad2web.user')
+    return user_module.User, user_module.USER_ROLE, user_module.USER_STATUS, user_module.ADMIN
 
 @settings.route('/')
 @login_required
@@ -75,6 +85,9 @@ def index():
 @settings.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
+
+# Then call get_user_related_constants() whenever you need these components.
+    User, USER_ROLE, USER_STATUS, ADMIN = get_user_related_constants()
     user = User.query.filter_by(name=current_user.name).first_or_404()
     form = ProfileForm(obj=user.user_detail,
             email=current_user.email,
@@ -121,6 +134,9 @@ def profile():
 @settings.route('/password', methods=['GET', 'POST'])
 @login_required
 def password():
+
+# Then call get_user_related_constants() whenever you need these components.
+    User, USER_ROLE, USER_STATUS, ADMIN = get_user_related_constants()
     user = User.query.filter_by(name=current_user.name).first_or_404()
     form = PasswordForm(next=request.args.get('next'))
 
@@ -468,7 +484,7 @@ def _get_cpu_temperature():
     if os.path.isfile('/sys/class/thermal/thermal_zone0/temp'):
         with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
             cpu_temperature = float(f.readline())
-	cpu_temperature_string = str(cpu_temperature / 1000)
+        cpu_temperature_string = str(cpu_temperature / 1000)
         return cpu_temperature_string
     else:
         return 'not supported'
@@ -746,13 +762,17 @@ def import_backup():
     if form.validate_on_submit():
         archive_data = form.import_file.data.read()
         fileobj = io.BytesIO(archive_data)
-
+        
         prefix = 'alarmdecoder-export'
-
+        
         try:
             with tarfile.open(mode='r:gz', fileobj=fileobj) as tar:
                 root = tar.getmember(prefix)
-
+                
+                # Get the EXPORT_MAP dynamically to avoid circular imports
+                from .constants import get_export_map
+                EXPORT_MAP = get_export_map()
+                
                 for member in tar.getmembers():
                     if member.name == prefix:
                         continue
@@ -760,50 +780,56 @@ def import_backup():
                         filename = os.path.basename(member.name)
                         if filename in EXPORT_MAP.keys():
                             _import_model(tar, member, EXPORT_MAP[filename])
-
+                
                 db.session.commit()
-
+                
                 _import_refresh()
-
+                
                 current_app.logger.info('Successfully imported backup file.')
                 flash('Import finished.', 'success')
-
+                
                 return redirect(url_for('frontend.index'))
-
-        except (tarfile.ReadError, KeyError), err:
+                
+        except (tarfile.ReadError, KeyError) as err:
             current_app.logger.error('Import Error: {0}'.format(err))
             flash('Import Failed: Not a valid AlarmDecoder archive.', 'error')
-
-        except (SQLAlchemyError, ValueError), err:
+            
+        except (SQLAlchemyError, ValueError) as err:
             db.session.rollback()
-
+            
             current_app.logger.error('Import Error: {0}'.format(err))
             flash('Import failed: {0}'.format(err), 'error')
-
+    
     use_ssl = Setting.get_by_name('use_ssl', default=False).value
-
+    
     return render_template('settings/import.html', form=form, ssl=use_ssl)
 
 def _import_model(tar, tarinfo, model):
     model.query.delete()
-
+    
     filedata = tar.extractfile(tarinfo).read()
     items = json.loads(filedata)
-
+    
+    # If we're importing User, get it dynamically
+    is_user_model = model.__name__ == 'User'
+    if is_user_model:
+        User, _, _, _ = get_user_related_constants()
+    
     for itm in items:
         m = model()
         for k, v in itm.iteritems():
             if isinstance(model.__table__.columns[k].type, db.DateTime) and v is not None:
                 v = datetime.strptime(v, '%Y-%m-%d %H:%M:%S.%f')
-
-            if k == 'password' and model == User:
+            
+            if k == 'password' and is_user_model:
                 setattr(m, '_password', v)
             else:
                 setattr(m, k, v)
-
+                
         db.session.add(m)
 
 def _import_refresh():
+    from ..certificate import Certificate, CA, SERVER
     config_path = Setting.get_by_name('ser2sock_config_path')
     if config_path:
         kwargs = {}
@@ -967,10 +993,15 @@ def port_forwarding():
 
 def get_external_ip():
     try:
-        my_ip = json.load(urllib2.urlopen(IP_CHECK_SERVER_URL, context=ssl._create_unverified_context()))['origin']
+        # ---> Use urlopen directly <---
+        response = urlopen(IP_CHECK_SERVER_URL, context=ssl._create_unverified_context())
+        # Read the response and decode it assuming UTF-8 encoding (common for JSON)
+        data = response.read().decode('utf-8')
+        my_ip = json.loads(data)['origin']
     except Exception as e:
-        return None
-
+         # Optionally log the error e
+         current_app.logger.error(f"Failed to get external IP: {e}")
+         return None
     return my_ip
 
 @settings.route('/configure_updater', methods=['GET', 'POST'])
@@ -1147,20 +1178,20 @@ class ImportVisitor(object):
             return self.modules
 
 
-class ImportWalker(ASTVisitor):
-    def __init__(self, visitor):
-        ASTVisitor.__init__(self)
-        self._visitor = visitor
+#class ImportWalker(ASTVisitor):
+#    def __init__(self, visitor):
+#        ASTVisitor.__init__(self)
+#        self._visitor = visitor
 
-    def default( self, node, *args):
-        self._visitor.default(node)
-        ASTVisitor.default(self, node, *args)
+#    def default( self, node, *args):
+#        self._visitor.default(node)
+#        ASTVisitor.default(self, node, *args)
 
 
-def parse_python_source(fn):
-    contents = open(fn, 'rU').read()
-    ast = compiler.parse(contents)
-    vis = ImportVisitor()
+#def parse_python_source(fn):
+#    contents = open(fn, 'rU').read()
+#    ast = compiler.parse(contents)
+#    vis = ImportVisitor()
 
-    compiler.walk(ast, vis, ImportWalker(vis))
-    return vis.finalize()
+#    compiler.walk(ast, vis, ImportWalker(vis))
+#    return vis.finalize()

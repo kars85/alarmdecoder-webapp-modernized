@@ -14,7 +14,7 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from flask import current_app
 
-from alarmdecoder.util import Firmware
+from alarmdecoder.util.firmware import Firmware
 
 from .constants import FIRMWARE_JSON_URL
 
@@ -26,7 +26,7 @@ except RuntimeError:
 
 def _print(*args, **kwargs):
     fmt, arguments = args[0], args[1:]
-    print fmt.format(*arguments)
+    print(fmt.format(*arguments))
 
 def _log(*args, **kwargs):
     logLevel = kwargs.pop('logLevel', logging.INFO)
@@ -224,7 +224,7 @@ class WebappUpdater(object):
                 self._db_updater.refresh()
                 db_succeeded = self._db_updater.update()
 
-        except sh.ErrorReturnCode, err:
+        except sh.ErrorReturnCode as err:
             git_succeeded = False
 
         if not git_succeeded or not db_succeeded:
@@ -352,7 +352,7 @@ class SourceUpdater(object):
             self._git.merge('origin/{0}'.format(self.branch))
             git_succeeded = True
 
-        except sh.ErrorReturnCode, err:
+        except sh.ErrorReturnCode as err:
             git_succeeded = False
 
         if not git_succeeded:
@@ -583,12 +583,12 @@ class DBUpdater(object):
                     try:
                         _log('Applying database revision: {0}'.format(rev))
                         command.upgrade(self._config, rev)
-                    except sqlalchemy.exc.OperationalError, err:
+                    except sqlalchemy.exc.OperationalError as err:
                         if 'already exists' in str(err):
                             _log('Table already exists.. stamping to revision.')
                             self._stamp_database(rev)
 
-            except sqlalchemy.exc.OperationalError, err:
+            except sqlalchemy.exc.OperationalError as err:
                 _log('DBUpdater: failure - {0}'.format(err), logLevel=logging.ERROR)
 
                 return False
@@ -601,14 +601,14 @@ class DBUpdater(object):
         try:
             command.downgrade(self._config, rev)
 
-        except sqlalchemy.exc.OperationalError, err:
+        except sqlalchemy.exc.OperationalError as err:
             _log('DBUpdater: failed to downgrade release: {0}'.format(err), logLevel=logging.ERROR)
             raise err
 
     def _stamp_database(self, rev):
         try:
             command.stamp(self._config, rev)
-        except sqlalchemy.exc.OperationalError, err:
+        except sqlalchemy.exc.OperationalError as err:
             _log('DBUpdater: stamp database - failure - {0}'.format(err), logLevel=logging.ERROR)
             raise err
 
@@ -630,59 +630,63 @@ class DBUpdater(object):
 class FirmwareUpdater(object):
     def __init__(self, filename, length):
         self._filename = filename
-        self._wait_tick = 0
-        self._upload_tick = 0
         self._firmware_length = length
         self.completed = False
+        self._upload_tick = 0
+        self._wait_tick = 0
 
     def update(self):
+        """Update the firmware."""
         try:
             self.completed = False
             self._upload_tick = 0
             self._wait_tick = 0
 
+            # Use the Firmware utility to handle the upload
             Firmware.upload(current_app.decoder.device._device, self._filename, self._stage_callback)
 
-        except Exception, err:
-            current_app.logger.error('Error updating firmware: %s' % err)
-            current_app.decoder.broadcast('firmwareupload', { 'stage': 'STAGE_ERROR', 'error': str(err) });
+        except Exception as err:
+            # Log error and broadcast failure
+            current_app.logger.error(f"Error updating firmware: {err}")
+            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_ERROR', 'error': str(err)})
 
     def _stage_callback(self, stage, **kwargs):
+        """
+        Callback function that handles different stages of the firmware upload process.
+        """
         if stage == Firmware.STAGE_START:
-            current_app.logger.info('Beginning firmware update process..')
-            current_app.decoder.broadcast('firmwareupload', { 'stage': 'STAGE_START' })
+            current_app.logger.info("Beginning firmware update process..")
+            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_START'})
 
         elif stage == Firmware.STAGE_WAITING:
             if self._wait_tick == 0:
-                current_app.logger.debug('Waiting for device.')
-
-            current_app.decoder.broadcast('firmwareupload', { 'stage': 'STAGE_WAITING' })
+                current_app.logger.debug("Waiting for device.")
+            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_WAITING'})
 
         elif stage == Firmware.STAGE_BOOT:
-            current_app.logger.debug('Rebooting device..')
-            current_app.decoder.broadcast('firmwareupload', { 'stage': 'STAGE_BOOT' })
+            current_app.logger.debug("Rebooting device..")
+            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_BOOT'})
 
         elif stage == Firmware.STAGE_LOAD:
-            current_app.logger.debug('Waiting for boot loader..')
-            current_app.decoder.broadcast('firmwareupload', { 'stage': 'STAGE_LOAD' })
+            current_app.logger.debug("Waiting for boot loader..")
+            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_LOAD'})
 
         elif stage == Firmware.STAGE_UPLOADING:
             if self._upload_tick == 0:
-                current_app.logger.info('Uploading firmware.')
-
+                current_app.logger.info("Uploading firmware.")
             self._upload_tick += 1
 
             percent = int((self._upload_tick / float(self._firmware_length)) * 100)
-            current_app.decoder.broadcast('firmwareupload', { 'stage': 'STAGE_UPLOADING', 'percent': percent })
+            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_UPLOADING', 'percent': percent})
 
         elif stage == Firmware.STAGE_DONE:
             self.completed = True
-            current_app.logger.info('Firmware upload complete!')
-            current_app.decoder.broadcast('firmwareupload', { 'stage': 'STAGE_DONE' })
+            current_app.logger.info("Firmware upload complete!")
+            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_DONE'})
 
         elif stage == Firmware.STAGE_ERROR:
-            current_app.logger.error('Error: %s' % kwargs.get("error", ""))
-            current_app.decoder.broadcast('firmwareupload', { 'stage': 'STAGE_ERROR', 'error': kwargs.get("error", "") })
+            current_app.logger.error(f"Error: {kwargs.get('error', '')}")
+            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_ERROR', 'error': kwargs.get('error', '')})
 
         elif stage == Firmware.STAGE_DEBUG:
-            current_app.logger.debug('DEBUG: %s' % kwargs.get("data", ""))
+            current_app.logger.debug(f"DEBUG: {kwargs.get('data', '')}")

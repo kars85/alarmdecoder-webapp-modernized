@@ -1,4 +1,4 @@
-from ad2web.app.services.alarm_service import setup_alarmdecoder
+from ad2web.services.alarm_service import setup_alarmdecoder # Correct path
 
 def test_setup_alarmdecoder(app):
     setup_alarmdecoder(app)

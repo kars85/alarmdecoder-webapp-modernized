@@ -6,26 +6,29 @@
     Define TestCase as base class for unit tests.
     Ref: http://packages.python.org/Flask-Testing/
 """
-
+import inspect  # <--- ADD THIS
 from flask_testing import TestCase as Base, Twill
 
 from ad2web.app import create_app
+# --- ADD THIS PRINT STATEMENT ---
+print(f"\n--- tests/__init__.py: Imported create_app from: {inspect.getfile(create_app)} ---\n")
+# --- END PRINT --
 from ad2web.user import User, UserDetail, ADMIN, USER, ACTIVE
 from ad2web.config import TestConfig
 from ad2web.extensions import db
 from ad2web.utils import MALE
 
 
+# tests/__init__.py
 class TestCase(Base):
-    """Base TestClass for your application."""
-
     def create_app(self):
-        """Create and return a testing flask app."""
-
+        # ...
+        # CHANGE THIS:
+        # app, _ = create_app(TestConfig)
+        # TO THIS:
         app = create_app(TestConfig)
-        self.twill = Twill(app, port=3000)
         return app
-
+    # ...
     def init_data(self):
 
         demo = User(
@@ -70,12 +73,15 @@ class TestCase(Base):
         db.drop_all()
 
     def login(self, username, password):
-        data = {
-            'login': username,
-            'password': password,
-        }
+        # ... (data setup and post) ...
         response = self.client.post('/login', data=data, follow_redirects=True)
-        assert "Hello" in response.data
+        # --- CHANGE THIS ASSERTION ---
+        # From:
+        # assert "Hello" in response.data.decode('utf-8')
+        # To (Example - check for Logout):
+        self.assertIn("Logout", response.data.decode('utf-8'), "Logout link not found after login")
+        # Or (Example - check for username):
+        # self.assertIn(f"Logged in as {username}", response.data.decode('utf-8')) # Adjust based on actual welcome message
         return response
 
     def _logout(self):

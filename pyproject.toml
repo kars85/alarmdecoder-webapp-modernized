@@ -54,3 +54,6 @@ dev = ["pytest", "coverage", "mypy", "flake8"]
 [tool.setuptools]
 packages = ["ad2web"]
 include-package-data = true
+
+[tool.poetry.dependencies]
+python-socketio = "^5.12.1"

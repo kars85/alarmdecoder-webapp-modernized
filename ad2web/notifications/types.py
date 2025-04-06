@@ -7,7 +7,8 @@ import smtplib
 import threading
 from email.mime.text import MIMEText
 from email.utils import formatdate
-from urlparse import urlparse
+from urllib.parse import urlparse
+
 import sleekxmpp
 import json
 import re
@@ -211,7 +212,7 @@ class NotificationSystem(object):
                         else:
                             n.send(type, message, rawmessage)
 
-                except Exception, err:
+                except Exception as err:
                     errors.append('Exception in notification {0}.send(): {1}'.format(n.__class__.__name__,str(err)))
 
         return errors
@@ -232,7 +233,7 @@ class NotificationSystem(object):
             if n:
                 n.send(None, 'Test Notification', None)
 
-        except Exception, err:
+        except Exception as err:
             return str(err)
         else:
             return None
@@ -272,7 +273,7 @@ class NotificationSystem(object):
 
             current_app.logger.info('add_subscriber: {0}'.format(sub_uuid))
 
-        except Exception, err:
+        except Exception as err:
             current_app.logger.error('Error adding subscriber for host:{0} callback:{1} timeout:{2} err: {3}'.format(host, callback, timeout, str(err)))
 
         return sub_uuid
@@ -375,7 +376,7 @@ class NotificationSystem(object):
                 if notifier['notification'].suppress > 0 and self._check_suppress(notifier):
                     self._remove_suppressed_zone(notifier['zone'])
 
-            except Exception, err:
+            except Exception as err:
                 errors.append('Error sending notification for {0}: {1}'.format(notifier['notification'].description, str(err)))
 
         for notifier in self._wait_list:
@@ -384,7 +385,7 @@ class NotificationSystem(object):
                     notifier['notification'].send(notifier['type'], notifier['message'], notifier['raw'])
                     self._wait_list.remove(notifier)
 
-            except Exception, err:
+            except Exception as err:
                 errors.append('Error sending notification for {0}: {1}'.format(notifier['notification'].description, str(err)))
 
         return errors

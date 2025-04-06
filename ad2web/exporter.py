@@ -7,7 +7,7 @@ import json
 import re
 import socket
 import random
-import compiler
+#import compiler
 import sys
 import types
 import importlib
@@ -17,9 +17,9 @@ from sqlalchemy.orm import class_mapper
 from sqlalchemy.exc import SQLAlchemyError
 from .utils import make_dir, tar_add_directory, tar_add_textfile
 from .settings import Setting
-from .settings.constants import EXPORT_MAP
+from .settings.constants import get_export_map # Import the function instead
 from datetime import datetime, timedelta
-from utils import INSTANCE_FOLDER_PATH
+from .utils import INSTANCE_FOLDER_PATH # Add a dot before utils
 from flask import Response
 
 class Exporter(object):
@@ -41,7 +41,8 @@ class Exporter(object):
         self.fileobj = io.BytesIO()
         self.filename = '{0}-{1}.tar.gz'.format(self.prefix, datetime.now().strftime('%Y%m%d%H%M%S'))
         self.full_path = os.path.join(self.export_path, self.filename)
-
+        # ---> ADD THIS LINE TO GET THE MAP <---
+        EXPORT_MAP = get_export_map()
         with tarfile.open(name=bytes(self.filename), mode=self.WRITE_MODE, fileobj=self.fileobj) as tar:
             tar_add_directory(tar, self.prefix)
 

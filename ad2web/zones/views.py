@@ -6,7 +6,7 @@ from flask import Blueprint, render_template, current_app, request, flash, redir
 from flask_login import login_required, current_user
 
 from ..extensions import db
-from ..user import User
+#from ..user import User
 from ..utils import allowed_file, make_dir
 from ..decorators import admin_required
 from ..settings import Setting
