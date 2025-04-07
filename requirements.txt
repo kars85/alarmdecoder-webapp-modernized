@@ -3,7 +3,7 @@ aiohttp==3.11.14
 aiohttp_retry==2.9.1
 aiosignal==1.3.2
 alabaster==0.7.16
--e git+ssh://git@github.com/kars85/alarmdecoder-modernized.git@ffff59d3d21296a8b838a84a7a4323f05e8fe29d#egg=alarmdecoder
+-e git+https://github.com/kars85/alarmdecoder-modernized.git@ffff59d3d21296a8b838a84a7a4323f05e8fe29d#egg=alarmdecoder
 alembic==1.15.2
 anyio==4.9.0
 arrow==1.3.0
