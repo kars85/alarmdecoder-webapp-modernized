@@ -1,83 +1,79 @@
-# -*- coding: utf-8 -*-
+from flask import Blueprint, render_template, abort, g, request, flash, Response, url_for, redirect
+from markupsafe import Markup
+from flask import current_app as APP
+from flask_login import login_required, current_user
 
-from flask import current_app
-import urllib
-import os
-try:
-    import cv2
-    import numpy as np
-    hascv2 = True
-except ImportError:
-    hascv2 = False
-
+from ..extensions import db
+from ..decorators import admin_required
+#from ..user import User
+from ..settings.models import Setting
+from alarmdecoder.panels import ADEMCO, DSC
+from ..keypad.models import KeypadButton
+from .forms import CameraForm
 from .models import Camera
-from .constants import USERNAME, PASSWORD, JPG_URL, CAMDIR, HEAD, FOOT, RECT_XML_FILE, READ_BYTE_AMOUNT
 
-class CameraSystem(object):
-    def __init__(self):
-        self._cameras = {}
-        self._camera_ids = []
-        self._image_bytes = {}
-        self._xml_path = os.path.join(os.getcwd(), 'ad2web', 'cameras', RECT_XML_FILE)
-        self._init_cameras()
+cameras = Blueprint('cameras', __name__, url_prefix='/cameras')
 
-    def _init_cameras(self):
-        for cam in Camera.query.all():
-            self._cameras[cam.id] = [cam.username, cam.password, cam.get_jpg_url]
-            self._image_bytes[cam.id] = ''
-            self._camera_ids.append(cam.id)
+@cameras.route('/')
+@login_required
+def index():
+    camera_list = Camera.query.filter_by(user_id=current_user.id).all()
+    buttons = KeypadButton.query.filter_by(user_id=current_user.id).all()
+    use_ssl = Setting.get_by_name('use_ssl', default=False).value
+    return render_template('cameras/index.html', camera_list=camera_list, buttons=buttons, ssl=use_ssl)
 
-        current_app.jinja_env.globals['cameras'] = len(self._cameras)
+@cameras.route('/camera_list')
+@login_required
+def cam_list():
+    camera_list = Camera.query.filter_by(user_id=current_user.id).all()
+    use_ssl = Setting.get_by_name('use_ssl', default=False).value
 
-    def get_camera_ids(self):
-        return self._camera_ids
+    return render_template('cameras/cam_list.html', camera_list=camera_list, ssl=use_ssl, active="cameras")
 
-    def refresh_camera_ids(self):
-        self._camera_ids = []
-        self._cameras.clear()
+@cameras.route('/create_camera', methods=['GET', 'POST'])
+@login_required
+def create_camera():
+    use_ssl = Setting.get_by_name('use_ssl',default=False).value
 
-        self._init_cameras()
+    form = CameraForm()
+    
+    if form.validate_on_submit():
+        cam = Camera()
+        form.populate_obj(cam)
+        cam.user_id = current_user.id
 
-    def write_image(self, id):
-        if hascv2 == True:
-            user_pass = self._cameras[id][USERNAME] + ':' + self._cameras[id][PASSWORD] + '@'
-            url_slash_index = self._cameras[id][JPG_URL].find('//')
+        db.session.add(cam)
+        db.session.commit()
+        flash('Camera Created', 'success')
+        return redirect(url_for('cameras.cam_list'))
 
-            if url_slash_index != -1:
-                url_slash_index += 2
-                stream_url = self._cameras[id][JPG_URL][:url_slash_index] + user_pass + self._cameras[id][JPG_URL][url_slash_index:]
-                stream = urllib.urlopen(stream_url)
-                cascade = cv2.CascadeClassifier(self._xml_path)
+    return render_template('cameras/create_cam.html', form=form, active="cameras", ssl=use_ssl)
 
-                #read the camera stream, hopefully capture a picture
-                while self._image_bytes[id].find(FOOT) == -1:
-                    self._image_bytes[id] += stream.read(READ_BYTE_AMOUNT)
+@cameras.route('/edit_camera/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_camera(id):
+    cam = Camera.query.filter_by(id=id,user_id=current_user.id).first_or_404()
+    form = CameraForm(obj=cam)
 
-                #find header
-                head = self._image_bytes[id].find(HEAD)
-                #find footer
-                foot = self._image_bytes[id].find(FOOT)
+    if form.validate_on_submit():
+        form.populate_obj(cam)
+        cam.user_id = current_user.id
 
-                #header and footer present = full image
-                if head != -1 and foot != -1:
-                    #grab all bytes that represent a jpg, ignore http headers (+2 to actually include footer bytes)
-                    jpg = self._image_bytes[id][head:foot+2]
+        db.session.add(cam)
+        db.session.commit()
 
-                    #if we've created a jpg, let's go ahead and reset bytes buffer
-                    self._image_bytes[id] = '' 
+        flash('Camera Updated', 'success')
 
-                    #create an image from the jpg bytes
-                    img = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8), 1)
+    use_ssl = Setting.get_by_name('use_ssl', default=False).value
+    return render_template('cameras/edit_cam.html', form=form, id=id, active="cameras", ssl=use_ssl)
 
-                    #determine rectangles for face recognition, if present, draw a rectangle around the face
-                    rects = cascade.detectMultiScale(img, 1.1, 5, 2, (10, 10) )
+@cameras.route('/remove_camera/<int:id>', methods=['GET', 'POST'])
+@login_required
+def remove_camera(id):
+    cam = Camera.query.filter_by(id=id,user_id=current_user.id).first_or_404()
 
-                    if len(rects) != 0:
-                        for x, y, w, h in rects:
-                            cv2.rectangle(img, (x, y), (x+w, y+h), (127, 255, 0), 1)
+    db.session.delete(cam)
+    db.session.commit()
 
-                    if not os.path.exists(CAMDIR):
-                        os.makedirs(CAMDIR)
-
-                    #write camera image to temp directory "/tmp/cameras/cam1.jpg" for Camera ID 1 by default
-                    cv2.imwrite(CAMDIR + '/cam' + str(id) + '.jpg', img)
+    flash('Camera Removed', 'success')
+    return redirect(url_for('cameras.cam_list'))
