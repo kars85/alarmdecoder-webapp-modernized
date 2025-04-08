@@ -1,0 +1,9 @@
+site_name: AlarmDecoder WebApp Docs
+theme:
+  name: material
+nav:
+  - Home: index.md
+  - API Reference: api.md
+  - Bouncycastle: bouncycastle.md
+  - .env Reference: env_example.md
+docs_dir: docs

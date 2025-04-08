@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  alarmdecoder-webapp:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      FLASK_APP: ad2web.app:create_app
+      FLASK_ENV: production
+    devices:
+      - "/dev/ttyAMA0:/dev/ttyAMA0"  # Raspberry Pi AlarmDecoder serial HAT
+    volumes:
+      - .:/app
+    restart: unless-stopped

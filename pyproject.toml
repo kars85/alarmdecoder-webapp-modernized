@@ -1,59 +1,15 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "alarmdecoder-webapp"
-version = "0.9.0"
-description = "Modern Flask web interface for AlarmDecoder devices"
-readme = "README.md"
+version = "1.0.0"
+description = "Refactored Python 3.11+ WebApp for AlarmDecoder"
+authors = [{name = "Modernized by AI"}]
 requires-python = ">=3.11"
-license = {text = "MIT"}
 
-authors = [
-  { name="Nu Tech Software Solutions, Inc.", email="ad2usb@support.nutech.com" }
-]
-
-keywords = ["alarmdecoder", "flask", "webapp", "home automation", "security"]
-
-classifiers = [
-  "Development Status :: 4 - Beta",
-  "Framework :: Flask",
-  "License :: OSI Approved :: MIT License",
-  "Programming Language :: Python :: 3.11",
-  "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
-  "Topic :: Home Automation",
-  "Topic :: Security"
-]
-
-dependencies = [
-  "flask",
-  "flask-sqlalchemy",
-  "flask-login",
-  "flask-babelplus",
-  "flask-wtf",
-  "flask-mail",
-  "flask-openid",
-  "flask-testing",
-  "pyserial>=3.5",
-  "netifaces",
-  "psutil>=5.0.0",
-  "jsonpickle",
-  "sh",
-  "alembic",
-  "gevent-socketio",
-  "sleekxmpp",
-  "pyopenssl",
-  # Editable install of SDK during dev (optional for local)
-  # "alarmdecoder @ file:///home/karson/alarmdecoder-modernized"
-]
-
-[project.optional-dependencies]
-dev = ["pytest", "coverage", "mypy", "flake8"]
-
-[tool.setuptools]
-packages = ["ad2web"]
-include-package-data = true
-
-[tool.poetry.dependencies]
-python-socketio = "^5.12.1"
+[tool.black]
+line-length = 100
+target-version = ['py311']
+exclude = 'migrations'

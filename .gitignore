@@ -27,3 +27,4 @@ openid
 env
 temp
 webapp.sublime-*
+/.venv/
