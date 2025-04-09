@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # In ad2web/settings/constants.py
 
-from ..setup.constants import NETWORK_DEVICE, SERIAL_DEVICE
 from ..settings import Setting
 
 from ..notifications import Notification, NotificationSetting, NotificationMessage
@@ -39,7 +38,7 @@ def get_export_map():
     User, USER_ROLE, USER_STATUS, ADMIN = get_user_and_detail()
     UserDetail = User.user_detail.property.mapper.class_
     Certificate = get_certificates()
-    
+
     return {
         'settings.json': Setting,
         'certificates.json': Certificate,
@@ -56,7 +55,7 @@ def get_export_map():
 
 IP_CHECK_SERVER_URL = "https://www.httpbin.org/ip"
 
-KNOWN_MODULES = [ 'heapq', 'code', 'functools', 'random', 'cffi', 'tty', 'datetime', 'sysconfig', 'gc', 'pty', 'xml', 
+KNOWN_MODULES = [ 'heapq', 'code', 'functools', 'random', 'cffi', 'tty', 'datetime', 'sysconfig', 'gc', 'pty', 'xml',
  'importlib', 'flask', 'base64', 'collections', 'imp', 'itsdangerous', 'ConfigParser', 'zipimport',
  'SocketServer', 'string', 'zipfile', 'httplib2', 'textwrap', 'markupsafe', 'jinja2', 'subprocess', 'twilio', 'decimal',
  'compiler', 'httplib', 'resource', 'bisect', 'quopri', 'uuid', 'psutil', 'token', 'greenlet', 'usb', 'signal', 'dis',

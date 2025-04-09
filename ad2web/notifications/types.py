@@ -9,7 +9,6 @@ from email.mime.text import MIMEText
 from email.utils import formatdate
 from urllib.parse import urlparse
 
-import sleekxmpp
 import json
 import re
 import ssl
@@ -18,8 +17,7 @@ import base64
 import uuid
 import traceback
 import functools
-from alarmdecoder import AlarmDecoder
-from alarmdecoder.panels import ADEMCO, DSC, PANEL_TYPES
+from alarmdecoder.panels import ADEMCO, DSC
 from alarmdecoder.zonetracking import Zone as ADZone
 
 try:
@@ -55,7 +53,6 @@ try:
 except ImportError:
     have_twilio = False
 
-from xml.dom.minidom import parseString
 from xml.etree.ElementTree import Element
 from xml.etree.ElementTree import SubElement
 from xml.etree.ElementTree import Comment
@@ -80,7 +77,6 @@ try:
 except ImportError:
     from urllib import urlencode, quote
 
-import logging
 try:
     import gntp.notifier
     have_gntp = True
@@ -89,13 +85,13 @@ except ImportError:
 
 from .constants import (EMAIL, DEFAULT_EVENT_MESSAGES, PUSHOVER, TWILIO, PROWL, PROWL_URL, PROWL_PATH, PROWL_EVENT, PROWL_METHOD,
                         PROWL_CONTENT_TYPE, PROWL_HEADER_CONTENT_TYPE, PROWL_USER_AGENT, GROWL_APP_NAME, GROWL_DEFAULT_NOTIFICATIONS,
-                        GROWL_PRIORITIES, GROWL, CUSTOM, URLENCODE, JSON, XML, CUSTOM_CONTENT_TYPES, CUSTOM_USER_AGENT, CUSTOM_METHOD,
+                        GROWL, CUSTOM, URLENCODE, JSON, XML, CUSTOM_CONTENT_TYPES, CUSTOM_USER_AGENT, CUSTOM_METHOD,
                         ZONE_FAULT, ZONE_RESTORE, BYPASS, CUSTOM_METHOD_GET, CUSTOM_METHOD_POST, CUSTOM_METHOD_GET_TYPE,
                         CUSTOM_TIMESTAMP, CUSTOM_MESSAGE, CUSTOM_REPLACER_SEARCH, TWIML, ARM, DISARM, ALARM, PANIC, FIRE, MATRIX,
                         UPNPPUSH, LRR, READY, CHIME, TIME_MULTIPLIER, XML_EVENT_TEMPLATE, XML_EVENT_PROPERTY, EVENT_TYPES,
                         RAW_MESSAGE, EVENTID_MESSAGE, EVENTDESC_MESSAGE, POWER_CHANGED, BOOT, LOW_BATTERY, RFX, EXP, AUI)
 
-from .models import Notification, NotificationSetting, NotificationMessage
+from .models import Notification, NotificationMessage
 from ..extensions import db
 from ..log.models import EventLogEntry
 from ..zones import Zone
@@ -454,7 +450,7 @@ class NotificationThread(threading.Thread):
                             with self._decoder.app.app_context():
                                 current_app.logger.info('Background notification function {0} finished with {1}.'.format(f.fcname, extra_msg))
 
-                            remove.append(f);
+                            remove.append(f)
 
                     for f in remove:
                         notifier._futures.remove(f)
@@ -797,7 +793,7 @@ class EmailNotification(BaseNotification):
                 msg['Subject'] = self.subject
 
             msg['From'] = self.source
-            recipients = re.split('\s*;\s*|\s*,\s*', self.destination)
+            recipients = re.split(r'\s*;\s*|\s*,\s*', self.destination)
             msg['To'] = ', '.join(recipients)
             msg['Date'] = formatdate(localtime=True)
 

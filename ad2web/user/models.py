@@ -4,11 +4,10 @@ from sqlalchemy import Column, types
 from sqlalchemy.ext.mutable import Mutable
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
-from ad2web.certificate.models import Certificate
 import importlib
 from ..extensions import db
 from ..utils import get_current_time, SEX_TYPE, STRING_LEN
-from .constants import USER, USER_ROLE, ADMIN, INACTIVE, USER_STATUS
+from .constants import USER, ADMIN, INACTIVE
 
 # Function to dynamically import User and related constants
 def get_user_related_constants():

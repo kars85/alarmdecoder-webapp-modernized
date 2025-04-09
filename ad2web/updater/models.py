@@ -1,13 +1,11 @@
 import os
-import sys
 import logging
-import shutil
 import json
 import urllib
 
 import sh
 import sqlalchemy.exc
-from sqlalchemy import create_engine, pool
+from sqlalchemy import create_engine
 from alembic import command
 from alembic.migration import MigrationContext
 from alembic.config import Config
@@ -66,14 +64,14 @@ class Updater(object):
         return status
 
     def check_firmware(self):
-        
+
         version = None
         if current_app.decoder.device:
             version = current_app.decoder.device.version_number
 
         ret = False
 
-        if version is not None and version is not '':
+        if version is not None and version != '':
             data = None
             version = version[1:]
             try:
@@ -224,7 +222,7 @@ class WebappUpdater(object):
                 self._db_updater.refresh()
                 db_succeeded = self._db_updater.update()
 
-        except sh.ErrorReturnCode as err:
+        except sh.ErrorReturnCode:
             git_succeeded = False
 
         if not git_succeeded or not db_succeeded:
@@ -352,7 +350,7 @@ class SourceUpdater(object):
             self._git.merge('origin/{0}'.format(self.branch))
             git_succeeded = True
 
-        except sh.ErrorReturnCode as err:
+        except sh.ErrorReturnCode:
             git_succeeded = False
 
         if not git_succeeded:

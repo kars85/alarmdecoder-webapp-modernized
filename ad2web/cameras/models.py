@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from sqlalchemy import Column, types
-from sqlalchemy.ext.mutable import Mutable
+from sqlalchemy import Column
 
 from ..extensions import db
 

@@ -1,11 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from flask_wtf import FlaskForm as Form
-from wtforms import (ValidationError, StringField, HiddenField,
-        PasswordField, SubmitField, TextAreaField, IntegerField, RadioField,
-        FileField, DecimalField, BooleanField, SelectField, FormField, FieldList)
-from wtforms.validators import (DataRequired, Length, EqualTo, Email, NumberRange,
-        URL, AnyOf, Optional, Regexp)
+from wtforms import (SubmitField, FileField, SelectField)
+from wtforms.validators import (DataRequired)
 
 from ..widgets import ButtonField
 

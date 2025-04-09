@@ -4,7 +4,6 @@ import os
 import sys
 import time
 import datetime
-import traceback
 import threading
 import binascii
 import logging # Use standard logging
@@ -17,10 +16,10 @@ except ImportError:
     has_upnp = False
 
 # --- Flask & SocketIO Imports ---
-from flask import Blueprint, Response, request, g, current_app, flash # Added flash
+from flask import request, current_app # Added flash
 from flask_socketio import Namespace, emit # emit is useful here
 # Import the single socketio instance from extensions
-from .extensions import db, mail, socketio # ADDED socketio
+from .extensions import db, socketio # ADDED socketio
 
 # --- Debugger (Consider Removing/Replacing) ---
 # from .socketioflaskdebug.debugger import SocketIODebugger # Keep commented unless verified compatible
@@ -964,7 +963,7 @@ class DecoderNamespace(Namespace):
 
             logger.debug(f"Sent keypress '{key}' to device.")
 
-        except (CommError, AttributeError) as err:
+        except (CommError, AttributeError):
             logger.error('Error sending keypress to device', exc_info=True)
         except Exception as e:
              logger.error(f"Unexpected error processing keypress: {e}", exc_info=True)

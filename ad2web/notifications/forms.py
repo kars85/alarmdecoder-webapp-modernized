@@ -3,19 +3,17 @@
 import re
 import json
 from flask_wtf import FlaskForm as Form
-from wtforms.fields import URLField, EmailField, TelField
 import wtforms
 import ast
 from wtforms import (ValidationError, StringField, HiddenField,
         PasswordField, SubmitField, TextAreaField, IntegerField, RadioField,
-        FileField, DecimalField, BooleanField, SelectField, FormField, FieldList,
+        BooleanField, SelectField, FormField, FieldList,
         SelectMultipleField)
-from wtforms.validators import (DataRequired, Length, EqualTo, Email, NumberRange,
-        URL, AnyOf, Optional, DataRequired)
-from wtforms.widgets import ListWidget, CheckboxInput
-from .constants import (NOTIFICATIONS, NOTIFICATION_TYPES, SUBSCRIPTIONS, DEFAULT_SUBSCRIPTIONS, EMAIL, PUSHOVER, PUSHOVER_PRIORITIES,
-                        LOWEST, LOW, NORMAL, HIGH, EMERGENCY, PROWL_PRIORITIES, GROWL, GROWL_PRIORITIES, GROWL_TITLE,
-                        URLENCODE, JSON, XML, CUSTOM_METHOD_POST, CUSTOM_METHOD_GET_TYPE, UPNPPUSH)
+from wtforms.validators import (Length, NumberRange,
+        Optional, DataRequired)
+from .constants import (NOTIFICATIONS, SUBSCRIPTIONS, PUSHOVER_PRIORITIES,
+                        LOWEST, LOW, NORMAL, HIGH, EMERGENCY, PROWL_PRIORITIES, GROWL_PRIORITIES, GROWL_TITLE,
+                        URLENCODE, JSON, XML, CUSTOM_METHOD_POST, CUSTOM_METHOD_GET_TYPE)
 from .models import NotificationSetting
 from ..widgets import ButtonField, MultiCheckboxField
 
@@ -53,7 +51,7 @@ class TimeValidator(object):
         self.message = message
 
     def __call__(self, form, field):
-        result = re.match("^(\d\d):(\d\d):(\d\d)$", field.data)
+        result = re.match(r"^(\d\d):(\d\d):(\d\d)$", field.data)
         if result is None:
             raise ValidationError(self.message)
 

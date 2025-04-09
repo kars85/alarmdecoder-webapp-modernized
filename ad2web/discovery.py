@@ -3,7 +3,6 @@
 import os
 import socket
 import struct
-import sys
 import threading
 import uuid
 # import fcntl # No longer needed after replacing _get_ip_address
@@ -356,7 +355,7 @@ class DiscoveryServer(threading.Thread):
              # If ST is specific, append it to USN
              usn += f'::{st}'
         elif st == 'upnp:rootdevice':
-             usn += f'::upnp:rootdevice'
+             usn += '::upnp:rootdevice'
         # If ssdp:all, USN is just the base UUID for the root device response part
 
         response_data = dict(

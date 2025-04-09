@@ -27,7 +27,7 @@ class Mailer(object):
 
     def updatePassword(self, password):
         self.password = password
-    
+
     def updateServer(self, server):
         self.server = server
 
@@ -39,7 +39,7 @@ class Mailer(object):
 
     def updateAuth(self, auth):
         self.authentication_required = authentication_required
- 
+
     def send_mail(self, send_from, send_to, subject, text, files=None):
         assert isinstance(send_to, list)
 

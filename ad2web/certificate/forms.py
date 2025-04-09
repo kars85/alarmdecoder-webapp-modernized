@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from flask_wtf import FlaskForm as Form
-from wtforms.fields import URLField, EmailField, TelField
-from wtforms import (ValidationError, StringField, HiddenField,
-        PasswordField, SubmitField, TextAreaField, IntegerField, RadioField,
-        FileField, DecimalField)
-from wtforms.validators import (DataRequired, Length, EqualTo, Email, NumberRange,
-        URL, AnyOf, Optional)
+from wtforms import (StringField, HiddenField,
+        SubmitField)
+from wtforms.validators import (DataRequired, Length)
 
 class GenerateCertificateForm(Form):
     next = HiddenField()

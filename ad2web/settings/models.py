@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from OpenSSL import crypto, SSL
-from sqlalchemy import Column, orm
+from sqlalchemy import Column
 
 from ..extensions import db
 

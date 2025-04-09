@@ -1,30 +1,23 @@
 # -*- coding: utf-8 -*-
 # In ad2web/app.py
 # --- Gevent ---
-import gevent
 from gevent import monkey
 monkey.patch_all()
 
 # --- Standard Imports ---
 import os
 import signal
-import jsonpickle
 import logging
-from logging.handlers import SMTPHandler
 
 
 
 # --- Flask and Extensions ---
 from flask import Flask, request, render_template, g, redirect, url_for
-from flask_babel import Babel
 from flask.cli import with_appcontext
 from flask_socketio import SocketIO  # Import SocketIO here
 import click  # For CLI commands
 
 # --- AlarmDecoder ---
-from alarmdecoder import AlarmDecoder
-from alarmdecoder.devices import SerialDevice
-from alarmdecoder.util import NoDeviceError  # Was missing before, might be needed by decoder logic
 
 # --- Application Specific Imports ---
 from .config import DefaultConfig
@@ -54,8 +47,6 @@ from .decoder import decodersocket, Decoder, create_decoder_socket  # Moved late
 # --- Imports for initdb Command ---
 from alembic.config import Config as AlembicConfig
 from alembic import command as alembic_command
-from .notifications.models import NotificationMessage
-from .notifications.constants import DEFAULT_EVENT_MESSAGES
 
 # For import *
 __all__ = ['create_app']

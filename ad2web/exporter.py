@@ -1,24 +1,15 @@
 import os
-import platform
-import hashlib
 import io
 import tarfile
 import json
-import re
-import socket
-import random
 #import compiler
-import sys
-import types
-import importlib
 import time
 
 from sqlalchemy.orm import class_mapper
-from sqlalchemy.exc import SQLAlchemyError
-from .utils import make_dir, tar_add_directory, tar_add_textfile
+from .utils import tar_add_directory, tar_add_textfile
 from .settings import Setting
 from .settings.constants import get_export_map # Import the function instead
-from datetime import datetime, timedelta
+from datetime import datetime
 from .utils import INSTANCE_FOLDER_PATH # Add a dot before utils
 from flask import Response
 
@@ -26,7 +17,7 @@ class Exporter(object):
     EXPORT_PATH = os.path.join(INSTANCE_FOLDER_PATH, 'exports')
     DAY_SECONDS = 86400
     WRITE_MODE = 'w:gz'
-    
+
     def __init__(self):
         self.prefix = 'alarmdecoder-export'
         self.export_path = Setting.get_by_name('export_local_path',default=self.EXPORT_PATH).value
@@ -65,7 +56,7 @@ class Exporter(object):
             cutoff = current_time - (days * self.DAY_SECONDS)
 
             files = os.listdir(self.export_path)
-            
+
             for f in files:
                 fullpath = os.path.join(self.export_path, f)
                 if f.startswith(self.prefix) and os.path.isfile(fullpath):

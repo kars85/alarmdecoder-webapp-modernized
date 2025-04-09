@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from sqlalchemy import Column, orm
+from sqlalchemy import Column
 
 from ..extensions import db
-from ..settings.models import Setting
 
 class EventLogEntry(db.Model):
     __tablename__ = 'event_log'

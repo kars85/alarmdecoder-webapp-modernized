@@ -1,11 +1,9 @@
 import os
 
-import configparser
 import psutil
 import signal
 import sh
 from collections import OrderedDict
-from OpenSSL import crypto
 
 DEFAULT_SETTINGS = OrderedDict([
     ('daemonize', 1),
@@ -84,7 +82,7 @@ def start():
     """
     try:
         sh.ser2sock('-d', _bg=True)
-    except sh.CommandNotFound as err:
+    except sh.CommandNotFound:
         raise NotFound('Could not locate ser2sock.')
 
 def stop():

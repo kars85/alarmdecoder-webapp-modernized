@@ -5,7 +5,7 @@ from markupsafe import Markup
 
 class ButtonWidget(object):
     html_params = staticmethod(html_params)
-    
+
     def __init__(self, text='', onclick='', **kwargs):
         self.text = text
         self.onclick = onclick

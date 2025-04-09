@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from OpenSSL import crypto, SSL
-from sqlalchemy import Column, orm
+from sqlalchemy import Column
 from sqlalchemy.orm.collections import attribute_mapped_collection
 
 from ..extensions import db

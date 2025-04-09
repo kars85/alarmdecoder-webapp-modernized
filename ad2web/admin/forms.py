@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from flask_wtf import FlaskForm as Form
-from wtforms import HiddenField, SubmitField, RadioField, DateField, StringField, PasswordField
-from wtforms.validators import (DataRequired, Length, EqualTo, Email, NumberRange,
-        URL, AnyOf, Optional)
+from wtforms import HiddenField, SubmitField, RadioField, StringField, PasswordField
+from wtforms.validators import (DataRequired, Length, EqualTo, AnyOf)
 
 from ..user import USER_ROLE, USER_STATUS, USER, ACTIVE
 from ..utils import PASSWORD_LEN_MIN, PASSWORD_LEN_MAX

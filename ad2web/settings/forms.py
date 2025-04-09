@@ -7,7 +7,7 @@ from flask_wtf import FlaskForm as Form
 from wtforms.fields import URLField, EmailField, TelField
 from wtforms import (ValidationError, StringField, HiddenField,
         PasswordField, SubmitField, TextAreaField, IntegerField, RadioField,
-        FileField, DecimalField, BooleanField, SelectField, FormField, FieldList)
+        FileField, DecimalField, BooleanField, SelectField)
 from wtforms.validators import (DataRequired, Length, EqualTo, Email, NumberRange,
         URL, AnyOf, Optional, IPAddress)
 from flask_login import current_user
@@ -18,7 +18,6 @@ from ..utils import allowed_file, ALLOWED_AVATAR_EXTENSIONS, INSTANCE_FOLDER_PAT
 from ..utils import SEX_TYPE
 
 from ..widgets import ButtonField
-from ..settings import Setting
 from .constants import DAILY, WEEKLY, MONTHLY, NONE
 
 class ProfileForm(Form):

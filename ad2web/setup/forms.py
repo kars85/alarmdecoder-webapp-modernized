@@ -1,16 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from markupsafe import Markup
 from flask_wtf import FlaskForm as Form
-from wtforms.fields import URLField, EmailField, TelField
 import wtforms
-from wtforms import (Field, ValidationError, HiddenField, StringField, HiddenField,
-        PasswordField, SubmitField, TextAreaField, IntegerField, RadioField,
-        FileField, DecimalField, SelectField, BooleanField, SelectMultipleField,
-        FormField)
+from wtforms import (StringField, PasswordField, SubmitField, IntegerField, RadioField,
+        FileField, SelectField, BooleanField, FormField)
 from wtforms.validators import (DataRequired, Length, EqualTo, Email, NumberRange,
-        URL, AnyOf, Optional, NoneOf)
-from .constants import NETWORK_DEVICE, SERIAL_DEVICE, BAUDRATES, DEFAULT_BAUDRATES
+        NoneOf)
+from .constants import BAUDRATES
 from ..validators import PathExists, Hex
 from ..utils import STRING_LEN, PASSWORD_LEN_MIN, PASSWORD_LEN_MAX
 from ..widgets import ButtonField, MultiCheckboxField

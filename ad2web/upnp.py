@@ -6,7 +6,6 @@ except ImportError:
 
 import threading
 import time
-from .extensions import db
 from .settings.models import Setting
 
 class UPNPThread(threading.Thread):
@@ -29,7 +28,7 @@ class UPNPThread(threading.Thread):
         if self.upnp is not None:
             try:
                 self.upnp.removePortForward(self.external_port)
-            except Exception as e:
+            except Exception:
                 pass
                 #self._decoder.app.logger.info("UPNP Error: {0}".format(e))
 
@@ -45,7 +44,7 @@ class UPNPThread(threading.Thread):
                 if self.internal_port is not None and self.external_port is not None and self.upnp is not None:
                     try:
                         self.upnp.addPortForward(self.internal_port, self.external_port)
-                    except Exception as e:
+                    except Exception:
                         pass
                         #self._decoder.app.logger.error("UPNP Error: {0}".format(e))
 
@@ -71,7 +70,7 @@ class UPNP():
             else:
                 raise ValueError('Missing library: miniupnpc - install using pip')
 
-        except Exception as e:
+        except Exception:
             raise
 
     def removePortForward(self, external_port):
@@ -86,5 +85,5 @@ class UPNP():
             else:
                 raise ValueError('Missing library: miniupnpc - install using pip')
 
-        except Exception as e:
+        except Exception:
             raise

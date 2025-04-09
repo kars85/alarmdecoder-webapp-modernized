@@ -1,13 +1,9 @@
-from flask import Blueprint, render_template, abort, g, request, flash, Response, url_for, redirect
-from markupsafe import Markup
-from flask import current_app as APP
+from flask import Blueprint, render_template, flash, url_for, redirect
 from flask_login import login_required, current_user
 
 from ..extensions import db
-from ..decorators import admin_required
 #from ..user import User
 from ..settings.models import Setting
-from alarmdecoder.panels import ADEMCO, DSC
 from ..keypad.models import KeypadButton
 from .forms import CameraForm
 from .models import Camera
@@ -36,7 +32,7 @@ def create_camera():
     use_ssl = Setting.get_by_name('use_ssl',default=False).value
 
     form = CameraForm()
-    
+
     if form.validate_on_submit():
         cam = Camera()
         form.populate_obj(cam)

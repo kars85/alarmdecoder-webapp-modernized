@@ -17,7 +17,6 @@ except ImportError:
 import sh
 #import compiler
 import sys
-import types
 import importlib
 import time
 
@@ -30,30 +29,25 @@ except ImportError:
 #from compiler.ast import Discard, Const
 #from compiler.visitor import ASTVisitor
 # In ad2web/settings/views.py
-import importlib
 from datetime import datetime, timedelta
 
-from flask import Blueprint, render_template, current_app, request, flash, Response, url_for, redirect
+from flask import Blueprint, render_template, current_app, request, flash, url_for, redirect
 from flask_login import login_required, current_user
 
-from sqlalchemy.orm import class_mapper
 from sqlalchemy.exc import SQLAlchemyError
 
-from alarmdecoder.panels import ADEMCO, DSC, PANEL_TYPES
+from alarmdecoder.panels import DSC
 from ..ser2sock import ser2sock
 from ..extensions import db
 
-from ..utils import allowed_file, make_dir, tar_add_directory, tar_add_textfile, INSTANCE_FOLDER_PATH
+from ..utils import allowed_file, make_dir, INSTANCE_FOLDER_PATH
 from ..decorators import admin_required
 from ..settings import Setting
 from .forms import ProfileForm, PasswordForm, ImportSettingsForm, HostSettingsForm, EthernetSelectionForm, EthernetConfigureForm, SwitchBranchForm, EmailConfigureForm, UPNPForm, VersionCheckerForm, ExportConfigureForm
-from ..setup.forms import DeviceTypeForm, LocalDeviceForm, NetworkDeviceForm
-from .constants import NETWORK_DEVICE, SERIAL_DEVICE, HOSTS_FILE, HOSTNAME_FILE, NETWORK_FILE, KNOWN_MODULES, DAILY, IP_CHECK_SERVER_URL
+from .constants import HOSTS_FILE, HOSTNAME_FILE, NETWORK_FILE, KNOWN_MODULES, DAILY, IP_CHECK_SERVER_URL
 #from ..certificate import Certificate, CA, SERVER
-from ..notifications import Notification, NotificationSetting
-from ..zones import Zone
 from ..upnp import UPNP
-from sh import hostname, sudo
+from sh import hostname
 from ..exporter import Exporter
 
 try:
@@ -67,8 +61,6 @@ import ssl
 # ADD THIS IMPORT near the top of ad2web/settings/views.py
 from urllib.request import urlopen
 # You already import ssl, so that's fine
-import ssl
-import json # Ensure json is imported if not already
 
 settings = Blueprint('settings', __name__, url_prefix='/settings')
 
@@ -376,7 +368,7 @@ def configure_ethernet_device(device):
                     device_map.append(x)
                     break
 
-            _write_network_file(device_map);
+            _write_network_file(device_map)
         else:
             for i in range(0, len(properties)):
                 if properties[i].find("static") != -1 and properties[i].find(device) != -1:
@@ -665,14 +657,14 @@ def switch_branch():
     for line in branches_web:
         line = line.replace("*", "")
         line = line.strip()
-        if not ( "HEAD" ) in line:
+        if ( "HEAD" ) not in line:
             branch = line.split('/')[-1]
             branch_list_web[branch] = branch
 
     for line in branches_api:
         line = line.replace("*", "")
         line = line.strip()
-        if not ( "HEAD" ) in line:
+        if ( "HEAD" ) not in line:
             branch = line.split('/')[-1]
             branch_list_api[branch] = branch
 
@@ -762,17 +754,17 @@ def import_backup():
     if form.validate_on_submit():
         archive_data = form.import_file.data.read()
         fileobj = io.BytesIO(archive_data)
-        
+
         prefix = 'alarmdecoder-export'
-        
+
         try:
             with tarfile.open(mode='r:gz', fileobj=fileobj) as tar:
                 root = tar.getmember(prefix)
-                
+
                 # Get the EXPORT_MAP dynamically to avoid circular imports
                 from .constants import get_export_map
                 EXPORT_MAP = get_export_map()
-                
+
                 for member in tar.getmembers():
                     if member.name == prefix:
                         continue
@@ -780,52 +772,52 @@ def import_backup():
                         filename = os.path.basename(member.name)
                         if filename in EXPORT_MAP.keys():
                             _import_model(tar, member, EXPORT_MAP[filename])
-                
+
                 db.session.commit()
-                
+
                 _import_refresh()
-                
+
                 current_app.logger.info('Successfully imported backup file.')
                 flash('Import finished.', 'success')
-                
+
                 return redirect(url_for('frontend.index'))
-                
+
         except (tarfile.ReadError, KeyError) as err:
             current_app.logger.error('Import Error: {0}'.format(err))
             flash('Import Failed: Not a valid AlarmDecoder archive.', 'error')
-            
+
         except (SQLAlchemyError, ValueError) as err:
             db.session.rollback()
-            
+
             current_app.logger.error('Import Error: {0}'.format(err))
             flash('Import failed: {0}'.format(err), 'error')
-    
+
     use_ssl = Setting.get_by_name('use_ssl', default=False).value
-    
+
     return render_template('settings/import.html', form=form, ssl=use_ssl)
 
 def _import_model(tar, tarinfo, model):
     model.query.delete()
-    
+
     filedata = tar.extractfile(tarinfo).read()
     items = json.loads(filedata)
-    
+
     # If we're importing User, get it dynamically
     is_user_model = model.__name__ == 'User'
     if is_user_model:
         User, _, _, _ = get_user_related_constants()
-    
+
     for itm in items:
         m = model()
         for k, v in itm.iteritems():
             if isinstance(model.__table__.columns[k].type, db.DateTime) and v is not None:
                 v = datetime.strptime(v, '%Y-%m-%d %H:%M:%S.%f')
-            
+
             if k == 'password' and is_user_model:
                 setattr(m, '_password', v)
             else:
                 setattr(m, k, v)
-                
+
         db.session.add(m)
 
 def _import_refresh():
@@ -1174,7 +1166,7 @@ class ImportVisitor(object):
             self.recent = []
 
         def finalize(self):
-            self.accept_imports();
+            self.accept_imports()
             return self.modules
 
 

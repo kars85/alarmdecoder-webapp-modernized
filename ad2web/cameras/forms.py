@@ -1,16 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from flask_wtf import FlaskForm as Form
-from wtforms.fields import URLField, EmailField, TelField
-from wtforms import (ValidationError, StringField, HiddenField,
-        PasswordField, SubmitField, TextAreaField, IntegerField, RadioField,
-        FileField, DecimalField, BooleanField, SelectField, FormField, FieldList)
-from wtforms.validators import (DataRequired, Length, EqualTo, Email, NumberRange,
-        URL, AnyOf, Optional)
-from flask_login import current_user
+from wtforms import (StringField, SubmitField)
+from wtforms.validators import (DataRequired, Length)
 
 #from ..user import User
-from ..utils import PASSWORD_LEN_MIN, PASSWORD_LEN_MAX, AGE_MIN, AGE_MAX, DEPOSIT_MIN, DEPOSIT_MAX
 
 from ..widgets import ButtonField
 

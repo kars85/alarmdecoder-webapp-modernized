@@ -4,24 +4,21 @@ import os
 import glob
 import platform
 
-from flask import Blueprint, render_template, abort, g, request, flash, Response, redirect, url_for
+from flask import Blueprint, render_template, flash, redirect, url_for
 from flask import current_app
-from flask_login import login_required, current_user
 
 from ..extensions import db
-from ..decorators import admin_required, admin_or_first_run_required
+from ..decorators import admin_or_first_run_required
 from ..settings.models import Setting
 
-from ..certificate.constants import CA, SERVER, CLIENT, INTERNAL, ACTIVE as CERT_ACTIVE
+from ..certificate.constants import CA, SERVER, INTERNAL, ACTIVE as CERT_ACTIVE
 from .forms import (DeviceTypeForm, NetworkDeviceForm, LocalDeviceForm,
                    SSLForm, SSLHostForm, DeviceForm, TestDeviceForm, CreateAccountForm, LocalDeviceFormUSB)
-from .constants import (SETUP_TYPE, SETUP_LOCATION, SETUP_NETWORK,
-                    SETUP_LOCAL, SETUP_DEVICE, SETUP_TEST, SETUP_COMPLETE, BAUDRATES,
-                    DEFAULT_BAUDRATES, DEFAULT_PATHS, SETUP_ENDPOINT_STAGE)
+from .constants import (SETUP_TEST, DEFAULT_BAUDRATES, DEFAULT_PATHS, SETUP_ENDPOINT_STAGE)
 from ..ser2sock import ser2sock
 
 from ..user.constants import ADMIN as USER_ADMIN, ACTIVE as USER_ACTIVE
-from alarmdecoder.panels import ADEMCO, DSC
+from alarmdecoder.panels import ADEMCO
 
 setup = Blueprint('setup', __name__, url_prefix='/setup')
 
@@ -329,7 +326,7 @@ def sslserver():
         except ser2sock.HupFailed as err:
             flash("We had an issue restarting ser2sock: {0}".format(err), 'error')
 
-        except ser2sock.NotFound as err:
+        except ser2sock.NotFound:
             flash("We weren't able to find ser2sock on your system.", 'error')
 
         except Exception as err:

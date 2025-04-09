@@ -12,7 +12,6 @@ import os
 import time
 import errno
 import stat
-import sys
 
 
 class LogWatcher(object):
