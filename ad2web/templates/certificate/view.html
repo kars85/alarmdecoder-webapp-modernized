@@ -1,82 +1,223 @@
 {% set page_title = certificate.name %}
 
 {% extends 'settings/layout.html' %}
-{% block pagejs %}
-<style type="text/css">
-textarea {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border: 0 none transparent;
-    margin: 0;
-    padding: 0;
-    outline: none;
-    resize: none;
-    overflow: hidden;
-    font-family: inherit;
-    font-size: 1em;
-}
-</style>
-{% include 'js/certificate/view.js' %}
-{% endblock %}
+
+{# Removed pagejs block #}
+
 {% block body %}
-<div id="cert_info">
-    {% if certificate.type == 2 %}
-    <div id="cert_download">
-        {% if ca_cert %}
-        Download: <a href="{{ url_for('certificate.download', certificate_id=certificate.id, download_type='pkcs12') }}">PKCS12</a>
-        | <a href="{{ url_for('certificate.download', certificate_id=certificate.id, download_type='tgz') }}">TGZ</a>
-        | <a href="{{ url_for('certificate.download', certificate_id=certificate.id, download_type='bks') }}">BKS</a>
+<div id="cert_info" class="container py-3"> {# Added container/padding #}
+    {# --- Display certificate details --- #}
+    {# Using definition list dl/dt/dd for better semantics #}
+    <dl class="row mb-4">
+         {% if certificate.type == 2 or (certificate.type == 0 and current_user.is_admin()) %}
+            {# Actions moved to top right for better layout #}
+            <div class="col-sm-12 text-end mb-3">
+                {% if certificate.type == 2 and ca_cert %}
+                     <span class="me-2">Download:</span>
+                     <a href="{{ url_for('certificate.download', certificate_id=certificate.id, download_type='pkcs12') }}" class="btn btn-sm btn-outline-secondary">PKCS12</a>
+                     <a href="{{ url_for('certificate.download', certificate_id=certificate.id, download_type='tgz') }}" class="btn btn-sm btn-outline-secondary">TGZ</a>
+                     <a href="{{ url_for('certificate.download', certificate_id=certificate.id, download_type='bks') }}" class="btn btn-sm btn-outline-secondary">BKS</a>
+                     <a id="revokeCert" href="{{ url_for('certificate.revoke', certificate_id=certificate.id) }}" class="btn btn-sm btn-danger ms-3">Revoke Certificate</a>
+                 {% elif certificate.type == 0 and current_user.is_admin() %}
+                     <a id="revokeca" class="btn btn-sm btn-danger" href="{{ url_for('certificate.revokeCA') }}">Revoke CA</a>
+                 {% endif %}
+             </div>
+         {% endif %}
+
+        <dt class="col-sm-3">Certificate ID</dt>
+        <dd class="col-sm-9" id="certificate-id">{{ certificate.id }} ({{ TYPES[certificate.type] }})</dd>
+
+        <dt class="col-sm-3">Status</dt>
+        <dd class="col-sm-9" id="certificate-status">{{ STATUS[certificate.status] }}</dd>
+
+        <dt class="col-sm-3">Created on</dt>
+        <dd class="col-sm-9" id="certificate-created">{{ certificate.created_on|format_date }}</dd>
+
+        {% if certificate.status == 0 %}
+        <dt class="col-sm-3">Revoked on</dt>
+        <dd class="col-sm-9" id="certificate-revoked">{{ certificate.revoked_on|format_date }}</dd>
         {% endif %}
-        <br>
-        <a style="margin-top: 3px; position: relative; float: right; width: 125px;" class="btn btn-primary" href="{{ url_for('certificate.revoke', certificate_id=certificate.id) }}">Revoke certificate</a>
+
+        <dt class="col-sm-3">Certificate Name</dt>
+        <dd class="col-sm-9" id="certificate-name">{{ certificate.name | e }}</dd>
+
+        <dt class="col-sm-3">Description</dt>
+        <dd class="col-sm-9" id="certificate-description">{{ certificate.description | e }}</dd>
+    </dl>
+
+    {# --- Buttons to trigger modals --- #}
+    <div class="text-center">
+        {# Triggering modals via data attributes is simpler #}
+        <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#viewCertModal">
+             View Certificate
+        </button>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#viewKeyModal">
+            View Key
+        </button>
     </div>
-    {% endif %}
-    {% if certificate.type == 0 and current_user.is_admin() %}
-    <div id="cert_download">
-        <a id="revokeca" style="margin-top: 3px; position: relative; float: right; width: 125px;" class="btn btn-primary" href="{{ url_for('certificate.revokeCA') }}">Revoke CA</a>
+
+    {# --- Hidden divs containing the actual cert/key text --- #}
+    {# These are now only needed as data sources for the modal JS #}
+    <div id="cert_input_source" style="display:none;">{{ certificate.certificate }}</div>
+    <div id="cert_key_source" style="display:none;">{{ certificate.key }}</div>
+
+</div> {# End cert_info container #}
+
+
+<!-- BS5 Modal for Viewing Certificate -->
+<div class="modal fade" id="viewCertModal" tabindex="-1" aria-labelledby="viewCertModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable"> {# Large, scrollable #}
+    <div class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5" id="viewCertModalLabel">Certificate Details</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+         <p><small>Select text and press Ctrl+C (or Cmd+C) to copy.</small></p>
+         {# Textarea will be populated by JS #}
+         <textarea id="certModalTextarea" class="form-control" rows="15" readonly style="font-family: monospace; font-size: 0.85rem; white-space: pre;"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
     </div>
-    {% endif %}
-    <div id="cert_id">
-        <label for="certificate-id">Certificate ID</label>
-        <span id="certificate-id">{{ certificate.id }} ({{ TYPES[certificate.type] }})</span>
+  </div>
+</div>
+
+<!-- BS5 Modal for Viewing Key -->
+<div class="modal fade" id="viewKeyModal" tabindex="-1" aria-labelledby="viewKeyModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable"> {# Large, scrollable #}
+    <div class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5" id="viewKeyModalLabel">Private Key</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+         <p><small>Select text and press Ctrl+C (or Cmd+C) to copy.</small></p>
+         {# Textarea will be populated by JS #}
+        <textarea id="keyModalTextarea" class="form-control" rows="15" readonly style="font-family: monospace; font-size: 0.85rem; white-space: pre;"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
     </div>
-    <div id="cert_status">
-        <label for="certificate-status">Status</label>
-        <span id="certificate-status">{{ STATUS[certificate.status] }}</span>
-    </div>
-    <div id="cert_created">
-        <label for="certificate-created">Created on</label>
-        <span id="certificate-created">{{ certificate.created_on|format_date }}</span>
-    </div>
-    {% if certificate.status == 0 %}
-    <div id="cert_revoked">
-        <label for="certificate-revoked">Revoked on</label>
-        <span id="certificate-revoked">{{ certificate.revoked_on|format_date }}</span>
-    </div>
-    {% endif %}
-    <div id="cert_name">
-        <label for="certificate-name">Certificate Name</label>
-        <span id="certificate-name">{{ certificate.name }}</span>
-    </div>
-    <div id="cert_desc">
-        <label for="certificate-description">Description</label>
-        <span id="certificate-description">{{ certificate.description }}</span>
-    </div>
-    <div id="cert_cert_cert">
-        <button id="cert" name="cert" type="button" value="Cert" class="btn btn-primary" style="position: relative;">View Certificate</button>
-        <div id="cert_input" style="display:none;"><p>{{ certificate.certificate }}</p></div>
-    </div>
-    <div id="cert_cert_key">
-        <button id="key" name="key" type="button" value="Key" class="btn btn-primary" style="position: relative;">View Key</button>
-        <div id="cert_key" style="display:none;"><p>{{ certificate.key }}</p></div>
-    </div>
+  </div>
 </div>
 {% endblock %}
 
-{% block js_btm %}
-<script src="{{ url_for('static', filename='js/vendor/jquery-ui-1.10.4.custom.js') }}"></script>
-<script src="{{ url_for('static', filename='js/vendor/jquery.confirm.min.js') }}"></script>
+
+{# Removed {% block js_btm %} loading jQuery UI #}
+
+
+{# --- Inline Page Specific JavaScript --- #}
+{% block inline_page_scripts %}
+<script type="text/javascript">
+// Use vanilla JS DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+
+    // --- Modal Population Logic ---
+    const viewCertModalEl = document.getElementById('viewCertModal');
+    const viewKeyModalEl = document.getElementById('viewKeyModal');
+
+    if (viewCertModalEl) {
+        const certTextarea = viewCertModalEl.querySelector('#certModalTextarea');
+        const certSourceDiv = document.getElementById('cert_input_source');
+
+        // Add event listener for when the modal is about to be shown
+        viewCertModalEl.addEventListener('show.bs.modal', event => {
+            if (certTextarea && certSourceDiv) {
+                certTextarea.value = certSourceDiv.textContent || certSourceDiv.innerText; // Populate textarea
+                // Timeout needed to ensure focus/select works after modal transition
+                setTimeout(() => {
+                    certTextarea.focus();
+                    certTextarea.select();
+                }, 150); // Adjust timing if needed
+            }
+        });
+         // Optional: Clear textarea when hidden to avoid brief flash of old content
+         viewCertModalEl.addEventListener('hidden.bs.modal', event => {
+            if (certTextarea) certTextarea.value = '';
+         });
+    }
+
+    if (viewKeyModalEl) {
+        const keyTextarea = viewKeyModalEl.querySelector('#keyModalTextarea');
+        const keySourceDiv = document.getElementById('cert_key_source');
+
+        viewKeyModalEl.addEventListener('show.bs.modal', event => {
+            if (keyTextarea && keySourceDiv) {
+                keyTextarea.value = keySourceDiv.textContent || keySourceDiv.innerText; // Populate textarea
+                 setTimeout(() => {
+                    keyTextarea.focus();
+                    keyTextarea.select();
+                }, 150);
+            }
+        });
+        viewKeyModalEl.addEventListener('hidden.bs.modal', event => {
+             if (keyTextarea) keyTextarea.value = '';
+         });
+    }
+
+    // --- jQuery Confirm Initialization (Keep if jQuery and Confirm plugin are loaded) ---
+    if (typeof $ !== 'undefined' && typeof $.fn.confirm !== 'undefined') {
+        const revokeCaButton = $('#revokeca'); // Use jQuery selector
+        if (revokeCaButton.length) {
+            revokeCaButton.confirm({
+                title: 'Revoke CA?',
+                content: 'This will invalidate all existing certificates. Are you sure?', // Changed text key to 'content' for newer versions? Check plugin docs.
+                // theme: 'bootstrap', // Optional: Add theme if plugin supports it
+                 buttons: {
+                    confirm: {
+                        text: 'Yes, Revoke CA',
+                        btnClass: 'btn-danger',
+                        action: function () {
+                            // Redirect on confirmation
+                            window.location.href = this.$target.attr('href'); // 'this' refers to confirm object
+                        }
+                    },
+                    cancel: {
+                        text: 'Cancel',
+                        btnClass: 'btn-secondary'
+                        // action: function () {} // Default cancel action
+                    }
+                }
+            });
+            // Prevent default link navigation until confirmed
+            revokeCaButton.on('click', function(e){
+                e.preventDefault();
+            });
+        }
+
+        // Confirmation for revoking individual cert (if needed)
+        const revokeCertButton = $('#revokeCert');
+         if (revokeCertButton.length) {
+            revokeCertButton.confirm({
+                title: 'Revoke Certificate?',
+                content: 'Are you sure you want to revoke this certificate?',
+                 buttons: {
+                    confirm: {
+                        text: 'Yes, Revoke',
+                        btnClass: 'btn-danger',
+                        action: function () {
+                             window.location.href = this.$target.attr('href');
+                        }
+                    },
+                    cancel: {
+                        text: 'Cancel',
+                        btnClass: 'btn-secondary'
+                    }
+                }
+            });
+            revokeCertButton.on('click', function(e){
+                 e.preventDefault();
+            });
+         }
+
+    } else {
+        console.warn('jQuery or jQuery Confirm plugin not loaded. Confirmation dialogs disabled.');
+    }
+
+    // Removed jQuery UI Dialog logic for #cert and #key click handlers
+});
+</script>
 {% endblock %}

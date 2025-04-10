@@ -4,60 +4,313 @@
 
 {% extends "layouts/base.html" %}
 
+{# Remove jQuery UI CSS and outdated custom styles #}
 {% block css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smoothness/jquery-ui-1.10.4.custom.css') }}">
 <style>
-.ui-widget-header {
-    width: 99.5%;
-}
-
-li {
-    line-height: 12px;
-}
+/* Keep custom styles only if absolutely necessary and verify they don't conflict with BS5 */
+/* Example: If line-height adjustment is still desired for nav-items */
+/*
+.nav-item {
+    line-height: 1.2; /* Adjust as needed */
+/* }
+*/
 </style>
 {% endblock %}
 
-{% block pagejs %}
-{% include 'js/cameras/cam_index.js' %}
-{% endblock %}
+{# Removed block pagejs as the JS is now inline #}
 
 {% block body %}
-<div class="settings_wrapper">
-    <div id="camera_tabs">
-        {% if cameras is defined and cameras == 0 %}
-            No cameras available.
-        {% else %}
-            <ul>
+<div class="settings_wrapper container py-3"> {# Added container and padding utilities #}
+
+    {# --- BS5 Tabs Structure --- #}
+    {% if cameras is defined and cameras|length > 0 %} {# Check length for robustness #}
+        <!-- Nav tabs -->
+        <ul class="nav nav-tabs mb-3" id="camera_tabs" role="tablist"> {# Added ID, role, mb-3 #}
             {% for camera in camera_list %}
-                <li><a href="#{{camera.id}}">{{camera.name}}</a></li>
+                <li class="nav-item" role="presentation"> {# Added nav-item, role #}
+                    {# Added nav-link, data-bs-toggle, data-bs-target, role, aria-controls, aria-selected #}
+                    <a class="nav-link {% if loop.first %}active{% endif %}" {# Activate first tab by default #}
+                       id="cam-tab-{{camera.id}}"
+                       data-bs-toggle="tab"
+                       data-bs-target="#cam-pane-{{camera.id}}"
+                       href="#cam-pane-{{camera.id}}" {# Optional but good practice #}
+                       role="tab"
+                       aria-controls="cam-pane-{{camera.id}}"
+                       aria-selected="{% if loop.first %}true{% else %}false{% endif %}">{{camera.name}}</a>
+                </li>
             {% endfor %}
-            </ul>
+        </ul>
+
+        <!-- Tab panes -->
+        <div class="tab-content" id="cameraTabContent"> {# Added wrapper for panes #}
             {% for camera in camera_list %}
-                <div id="{{camera.id}}" style="text-align: center;">
-                    <p>
-                    <img id="cam_image{{camera.id}}" src="{{ url_for('static', filename='cameras/cam' + camera.id|string() + '.jpg' ) }}" />
-                    </p>
+                {# Added tab-pane, fade, show/active, role, aria-labelledby #}
+                <div class="tab-pane fade {% if loop.first %}show active{% endif %}"
+                     id="cam-pane-{{camera.id}}"
+                     role="tabpanel"
+                     aria-labelledby="cam-tab-{{camera.id}}"
+                     tabindex="0"> {# Added tabindex for accessibility #}
+                    <div class="text-center"> {# Kept text-align center #}
+                        <p>
+                        <img id="cam_image{{camera.id}}" src="{{ url_for('static', filename='cameras/cam' + camera.id|string() + '.jpg' ) }}" class="img-fluid rounded" alt="Live view from Camera {{ camera.name }}"/> {# Added img-fluid, rounded, alt #}
+                        </p>
+                    </div>
                 </div>
             {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info" role="alert">
+             No cameras available. Add cameras in Settings.
+        </div>
+    {% endif %}
+    {# --- End BS5 Tabs Structure --- #}
+
+
+    {# --- BS5 Modal Structure (Replaces #dialog) --- #}
+    {% if buttons %}
+        <!-- Bootstrap 5 Modal -->
+        <div class="modal fade" id="customButtonsModal" tabindex="-1" aria-labelledby="customButtonsModalLabel" aria-hidden="true"> {# Use the ID referenced in JS #}
+          <div class="modal-dialog modal-dialog-centered"> {# Optional: center vertically #}
+            <div class="modal-content">
+              <div class="modal-header">
+                <h1 class="modal-title fs-5" id="customButtonsModalLabel">Custom Buttons</h1>
+                {# Standard BS5 close button - replaces #exit img #}
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body text-center"> {# Optional: center buttons #}
+                {# Place custom buttons here #}
+                {% for button in buttons%}
+                    <button id="custom_{{button.button_id}}" class="btn btn-secondary mb-2 custom_button" type="button">{{button.label}}</button> {# Use button tag, BS5 classes #}
+                {% endfor%}
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button> {# Standard close button #}
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- End Modal -->
+
+        <hr class="my-4"> {# Add separator #}
+        <div id="custom-button-row" class="text-center mb-3">
+            {# Trigger modal via JS (using the handler in inline script below) #}
+             {# Changed from input to button for semantics #}
+            <button type="button" id="custom_buttons" name="custom_buttons" class="btn btn-primary">
+                Custom Buttons
+            </button>
+             {# If you prefer data attributes (remove JS handler): #}
+             {# <button type="button" id="custom_buttons" name="custom_buttons" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#customButtonsModal">Custom Buttons</button> #}
+        </div>
+    {% endif %}
+    {# --- End BS5 Modal Structure --- #}
+
+</div> {# End settings_wrapper #}
+{% endblock %} {# End body block #}
+
+
+{# Removed block js_btm that loaded jQuery UI #}
+
+
+{# --- Inline Page Specific JavaScript --- #}
+{% block inline_page_scripts %}
+<script type="text/javascript">
+    // Helper function to detect if mobile class is present (uses jQuery)
+    function isMobile() {
+        if (typeof $ !== 'undefined') {
+            return $('html').hasClass('mobile') && !$('html').hasClass('tablet');
+        }
+        return false;
+    }
+
+    // Helper function to detect if tablet class is present (uses jQuery)
+    function isTablet() {
+        if (typeof $ !== 'undefined') {
+            return $('html').hasClass('tablet');
+        }
+        return false;
+    }
+
+    // Helper function to check for native localStorage support
+    function storageSupported() {
+        try {
+            const mod = '__storage_test__';
+            localStorage.setItem(mod, mod);
+            localStorage.removeItem(mod);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // Run code after the DOM is fully loaded and parsed
+    document.addEventListener('DOMContentLoaded', function() {
+
+        // --- Bootstrap 5 Tab Initialization & Persistence ---
+        const cameraTabContainer = document.getElementById('camera_tabs');
+        if (cameraTabContainer) {
+            const triggerTabList = cameraTabContainer.querySelectorAll('a[data-bs-toggle="tab"]');
+
+            triggerTabList.forEach(triggerEl => {
+                triggerEl.addEventListener('click', event => {
+                    event.preventDefault();
+                    try {
+                        const tabTrigger = new bootstrap.Tab(triggerEl);
+                        tabTrigger.show();
+                    } catch (e) {
+                         console.error("Error showing tab on click:", e);
+                    }
+                });
+
+                triggerEl.addEventListener('shown.bs.tab', event => {
+                    if (storageSupported()) {
+                        localStorage.setItem('currentCamTabIndex', event.target.getAttribute('data-bs-target'));
+                    }
+                });
+            });
+
+            // Restore the last active tab on page load
+            if (storageSupported()) {
+                const lastActiveTabSelector = localStorage.getItem('currentCamTabIndex');
+                let tabToActivate = null;
+
+                if (lastActiveTabSelector) {
+                    tabToActivate = cameraTabContainer.querySelector(`a[data-bs-target="${lastActiveTabSelector}"]`);
+                }
+
+                if (!tabToActivate) {
+                    tabToActivate = cameraTabContainer.querySelector('a[data-bs-toggle="tab"]');
+                }
+
+                if (tabToActivate) {
+                    try {
+                        const tab = new bootstrap.Tab(tabToActivate);
+                        // Check if element is actually visible before showing (might prevent errors if tab content is complex)
+                        if (tabToActivate.offsetParent !== null) {
+                             tab.show();
+                        } else {
+                            // If not visible, maybe default to first? Handle as needed.
+                             const firstTab = cameraTabContainer.querySelector('a[data-bs-toggle="tab"]');
+                            if(firstTab) { new bootstrap.Tab(firstTab).show(); }
+                        }
+                    } catch (e) {
+                        console.error("Error showing stored/first tab:", e);
+                         const firstTab = cameraTabContainer.querySelector('a[data-bs-toggle="tab"]');
+                         if(firstTab) { try { new bootstrap.Tab(firstTab).show(); } catch(e2) {} } // Attempt first tab as final fallback
+                    }
+                }
+            } else {
+                const firstTab = cameraTabContainer.querySelector('a[data-bs-toggle="tab"]');
+                if (firstTab) { try { new bootstrap.Tab(firstTab).show(); } catch(e2) {} }
+            }
+        } else {
+           {% if cameras is defined and cameras|length > 0 %}
+               // Only warn if tabs were expected
+               console.warn('Camera tab container #camera_tabs not found.');
+           {% endif %}
+        }
+
+
+        // --- Bootstrap 5 Modal Setup ---
+        const customButtonsModalEl = document.getElementById('customButtonsModal');
+        let customButtonsModal = null;
+
+        if (customButtonsModalEl) {
+            customButtonsModal = bootstrap.Modal.getOrCreateInstance(customButtonsModalEl);
+        } else {
+            if (document.getElementById('custom_buttons')) { // Check if the trigger button exists
+                console.warn('Custom buttons modal element #customButtonsModal not found.');
+            }
+        }
+
+        // --- Custom Buttons Logic ---
+        {% if buttons %}
+            const $customButtonsTrigger = $('#custom_buttons'); // Using jQuery for event binding brevity
+
+            // --- Modal Closing Logic (handled by data-bs-dismiss in HTML) ---
+
+            // Add handlers for individual custom buttons INSIDE the modal
+            {% for button in buttons %}
+                const customButton{{button.button_id}} = document.getElementById("custom_{{button.button_id}}");
+                if (customButton{{button.button_id}}) {
+                    customButton{{button.button_id}}.addEventListener('click', function() {
+                        var code = '{{button.code | escapejs}}';
+                        if (typeof decoder !== 'undefined') {
+                            decoder.emit('keypress', String(code));
+                        } else {
+                            console.error('AlarmDecoder object (decoder) not found.');
+                        }
+                        if (customButtonsModal) {
+                            customButtonsModal.hide();
+                        }
+                    });
+                } else {
+                    console.warn("Custom button #custom_{{button.button_id}} not found.");
+                }
+            {% endfor %}
+
+
+            // --- Modal Opening Logic (triggered via JS) ---
+             // Check if jQuery exists before using it
+            if (typeof $ !== 'undefined') {
+                $customButtonsTrigger.on('click', function(event) {
+                    event.preventDefault();
+                    if (customButtonsModal) {
+                        customButtonsModal.show();
+                    } else {
+                        console.error("Cannot show modal, instance not found.");
+                    }
+                });
+            } else {
+                 // Fallback or vanilla JS alternative if jQuery might be removed later
+                 const triggerBtn = document.getElementById('custom_buttons');
+                 if(triggerBtn) {
+                    triggerBtn.addEventListener('click', function(event) {
+                        event.preventDefault();
+                         if (customButtonsModal) {
+                            customButtonsModal.show();
+                         } else {
+                            console.error("Cannot show modal, instance not found.");
+                         }
+                    });
+                 }
+            }
+
         {% endif %}
-    </div>
-{% if buttons %}
-    <div id="dialog" style="display: none;" title="Custom Buttons">
-        <img id="exit" src="{{ url_for('static', filename='img/red_x.png') }}" height="24" width="24"/><br/><br/>
-    {% for button in buttons%}
-        <input id="custom_{{button.button_id}}" class="custom_button" type="button" value="{{button.label}}"></input>
-    {% endfor%}
-    </div>
-    <br/>
-    <div id="custom-button-row" style="text-align: center;">
-        <input type="button" id="custom_buttons" name="custom_buttons" value="Custom Buttons"/>
-    </div>
-{% endif %}
 
-</div>
-{% endblock %}
 
-{% block js_btm %}
-<script src="{{ url_for('static', filename='js/vendor/jquery-ui-1.10.4.custom.js') }}"></script>
-<script src="{{ url_for('static', filename='js/vendor/jquery.confirm.min.js') }}"></script>
+        // --- Camera Image Refresh (Kept using jQuery for simplicity) ---
+        if (typeof $ !== 'undefined') {
+            window.setInterval(function() {
+                {% for camera in camera_list %}
+                    // Check if the specific tab pane is active before updating image
+                    const pane = document.getElementById("cam-pane-{{camera.id}}");
+                    if (pane && pane.classList.contains('active')) {
+                        $("#cam_image{{camera.id}}").each(function() { // .each might be overkill if ID is unique
+                            var jqt = $(this);
+                            var src = jqt.attr('src');
+                            if (!src) return;
+
+                            var newsrc = '';
+                            var timestamp = '_ts=' + new Date().getTime();
+
+                            if (src.indexOf('?') != -1) {
+                                if (src.match(/([?&])_ts=\d+/)) {
+                                    newsrc = src.replace(/([?&])_ts=\d+/, '$1' + timestamp);
+                                } else {
+                                    newsrc = src + '&' + timestamp;
+                                }
+                            } else {
+                                newsrc = src + '?' + timestamp;
+                            }
+                            jqt.attr('src', newsrc);
+                        });
+                    }
+                {% endfor %}
+            }, 750); // Slightly longer interval maybe? 750ms
+        } else {
+            console.error('jQuery not found, cannot initialize camera image refresh.');
+        }
+
+    }); // End DOMContentLoaded
+</script>
 {% endblock %}

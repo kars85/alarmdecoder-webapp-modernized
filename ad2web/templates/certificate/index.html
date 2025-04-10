@@ -3,14 +3,15 @@
 {% set page_title = 'Certificates' %}
 
 {% extends 'settings/layout.html' %}
-{% block pagejs %}
-{% include 'js/certificate/cert_index.js' %}
-{% endblock %}
+
+{# Removed {% block pagejs %} #}
+
 {% block body %}
-<div id="data">
-    <div id="loading"></div>
+<div id="data" class="container py-3"> {# Added container/padding #}
+    <div id="loading" class="text-center my-5"></div>
     <div id="datatable" style="display: none;">
-        <table class="display table-hover" cellpadding="3" bordercolor="EEEEEE" border="1" id="certificate-table">
+        {# Added standard BS5 table classes #}
+        <table class="table table-striped table-bordered dt-responsive nowrap" style="width:100%" id="certificate-table">
             <thead>
                 <tr>
                     <th>Name</th>
@@ -20,34 +21,101 @@
                     <th>Description</th>
                 </tr>
             </thead>
-
-            {% for cert in certificates %}
-                {% if cert.user == current_user or current_user.is_admin() %}
-                <tr>
-                    <td><a href="{{ url_for('certificate.view', certificate_id=cert.id) }}">{{ cert.name }}</a></td>
-                    <td>{{ TYPES[cert.type] }}</td>
-                    <td>{{ STATUS[cert.status] }}</td>
-                    <td>{% if cert.user %}{{ cert.user.name}}{% else %}System{% endif %}</td>
-                    <td>{{ cert.description }}</td>
-                </tr>
-                {% endif %}
-            {% endfor %}
-
+            <tbody> {# Ensure tbody tag exists #}
+                {% for cert in certificates %}
+                    {% if cert.user == current_user or current_user.is_admin() %}
+                    <tr>
+                        <td><a href="{{ url_for('certificate.view', certificate_id=cert.id) }}">{{ cert.name | e }}</a></td>
+                        <td>{{ TYPES[cert.type] }}</td>
+                        <td>{{ STATUS[cert.status] }}</td>
+                        <td>{% if cert.user %}{{ cert.user.name | e }}{% else %}System{% endif %}</td>
+                        <td>{{ cert.description | e }}</td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
         </table>
     </div>
-    {% if not ca_cert and current_user.is_admin() %}
-        <a style="margin-top: 5px; width: 95px;" id="generateca" class='btn btn-primary' href="{{ url_for('certificate.generateCA') }}">Generate CA</a>
-    {% endif %}
-    <br>
-    {% if ca_cert %}
-    <a style="margin-top: 5px;" class="btn btn-primary" href="{{ url_for('certificate.generate') }}">New Certificate</a>
-    {% endif %}
+    <hr class="my-3">
+    <div class="text-center"> {# Center buttons #}
+        {% if not ca_cert and current_user.is_admin() %}
+            <a id="generateca" class='btn btn-success me-2' href="{{ url_for('certificate.generateCA') }}"> {# Updated styling #}
+                 <i class="bi bi-shield-lock"></i> Generate CA {# Optional Icon #}
+            </a>
+        {% endif %}
+        {% if ca_cert %}
+            <a class="btn btn-primary" href="{{ url_for('certificate.generate') }}">
+                 <i class="bi bi-plus-circle"></i> New Certificate {# Optional Icon #}
+            </a>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
 
-{% block js_btm %}
-<script src="{{ url_for('static', filename='js/vendor/jquery-ui-1.10.4.custom.js') }}"></script>
-<script src="{{ url_for('static', filename='js/vendor/jquery.dataTables.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/vendor/spin.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/vendor/jquery.spin.js') }}"></script>
+{# Removed {% block js_btm %} #}
+
+
+{# --- Inline Page Specific JavaScript --- #}
+{% block inline_page_scripts %}
+<script type="text/javascript">
+    $(document).ready(function(){ // Keep using jQuery ready
+        // Ensure Spin plugin and jQuery are loaded
+        if (typeof $.fn.spin !== 'undefined' && typeof $ !== 'undefined') {
+            $.fn.spin.presets.flower = {
+                lines: 13, length: 30, width: 10, radius: 30, className: 'spinner', color: '#000'
+            }
+            $('#loading').spin('flower');
+        } else {
+            console.error("jQuery or jQuery Spin plugin not loaded.");
+            $('#datatable').show(); // Show table if spinner fails
+        }
+
+         // Ensure DataTables and jQuery are loaded
+        if (typeof $.fn.dataTable !== 'undefined' && typeof $ !== 'undefined') {
+            $('#certificate-table').dataTable({
+                // "bJQueryUI" : true, // REMOVED - Use BS5 styling from base.html
+                responsive: true, // Added for better layout
+                stateSave: true,
+                stateDuration: 60*60*24,
+                pagingType : "full_numbers",
+                // "sDom" : '<"H"lr>t<"F"fip>', // Default BS5 DOM structure is usually fine, customize if needed
+                language: { // Using updated language object keys
+                    infoFiltered: "(filtered from _MAX_ total entries)",
+                    info: "Showing _START_ to _END_ of _TOTAL_ certificates",
+                    infoEmpty: "No certificates found",
+                    emptyTable: " ",
+                    lengthMenu: "Show _MENU_ entries",
+                    search: "Search:",
+                     paginate: {
+                        first:    "First",
+                        last:     "Last",
+                        next:     "Next",
+                        previous: "Previous"
+                    },
+                },
+                // Column definitions might need tweaking if sDom is removed
+                columnDefs: [ // Using modern columnDefs instead of aoColumns/sWidth
+                    { "width": "16%", "targets": 0 },
+                    { "width": "13%", "targets": 1 },
+                    { "width": "8%", "targets": 2 },
+                    { "width": "8%", "targets": 3 },
+                    { "targets": 4 } // Let last column auto-size
+                ],
+                initComplete: function() {
+                    if (typeof $.fn.spin !== 'undefined') {
+                        $('#loading').stop().hide();
+                    } else {
+                         $('#loading').hide();
+                    }
+                    $('#datatable').show();
+                    // 'this.fnAdjustColumnSizing();' // Deprecated - usually not needed with BS5 responsive
+                },
+            });
+        } else {
+             console.error("jQuery or DataTables plugin not loaded.");
+             $('#datatable').show();
+             $('#loading').hide();
+        }
+    });
+</script>
 {% endblock %}

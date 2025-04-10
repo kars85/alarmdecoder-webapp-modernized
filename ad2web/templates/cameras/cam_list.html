@@ -1,48 +1,128 @@
 {% from "macros/_form.html" import render_form %}
 
-{% extends 'settings/layout.html' %}
+{% extends 'settings/layout.html' %} {# Inherits from settings layout #}
 
-{% block css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smoothness/jquery-ui-1.10.4.custom.css') }}">
-{% endblock %}
+{# Removed {% block css %} loading jQuery UI #}
 
-{% block pagejs %}
-{% include 'js/cameras/cam_list.js' %}
-{% endblock %}
+{# Removed {% block pagejs %} that included the separate JS file #}
 
 {% block body %}
-<div class="settings_wrapper">
-    <div id="loading"></div>
+<div class="settings_wrapper container py-3"> {# Added container/padding for consistency #}
+    {# Loading indicator for Spin.js #}
+    <div id="loading" class="text-center my-5"></div>
+
+    {# DataTables container - initially hidden #}
     <div id="datatable" style="display: none;">
-        <table id="cameras-table" class="table table-striped table-bordered dt-responsive nowrap" cellspacing="0">
+        <table id="cameras-table" class="table table-striped table-bordered dt-responsive nowrap" style="width:100%"> {# Explicit width recommended for DT #}
             <thead>
                 <tr>
                     <th>ID</th>
                     <th>Name</th>
                     <th>Get JPG URL</th>
-                    <th>Actions</th>
+                    <th class="text-end">Actions</th> {# Align actions right #}
                 </tr>
             </thead>
             <tbody>
                 {% for camera in camera_list %}
                     <tr>
                         <td><a href="{{ url_for('cameras.edit_camera', id=camera.id) }}">{{ camera.id }}</a></td>
-                        <td>{{ camera.name }}</td>
-                        <td>{{ camera.get_jpg_url }}</td>
-                        <td><a href="{{ url_for('cameras.remove_camera', id=camera.id) }}"><img style="text-align: center; float: right; margin-right: 15px;" src="{{ url_for('static', filename='img/red_x.png') }}"/></a></td>
+                        <td>{{ camera.name | e }}</td> {# Added escape filter #}
+                        <td>{{ camera.get_jpg_url | e }}</td> {# Added escape filter #}
+                        <td class="text-end">
+                            {# Link styled as a small danger button - using BS Icons example #}
+                            <a href="{{ url_for('cameras.remove_camera', id=camera.id) }}" class="btn btn-sm btn-danger" title="Remove Camera">
+                                <i class="bi bi-trash"></i> {# Example: Bootstrap Icon #}
+                                {# Replace with Font Awesome if using that: <i class="fas fa-trash"></i> #}
+                                {# Or keep the image if preferred: <img src="{{ url_for('static', filename='img/red_x.png') }}" alt="Remove" style="height:1rem; vertical-align: middle;"/> #}
+                            </a>
+                        </td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    <br/>
-    <a id="clear" class="btn btn-primary" href="{{ url_for('cameras.create_camera') }}">New Camera</a>
+    <hr class="my-4"> {# Add separator #}
+    {# Updated "New Camera" link to use BS5 button classes #}
+    <div class="text-center"> {# Center button #}
+        <a id="clear" class="btn btn-primary" href="{{ url_for('cameras.create_camera') }}" style="display: none;"> {# Keep initially hidden #}
+            <i class="bi bi-plus-circle"></i> New Camera {# Optional Icon #}
+        </a>
+    </div>
 </div>
 {% endblock %}
 
-{% block js_btm %}
-<script src="{{ url_for('static', filename='js/vendor/jquery-ui-1.10.4.custom.js') }}"></script>
-<script src="{{ url_for('static', filename='js/vendor/datatables.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/vendor/spin.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/vendor/jquery.spin.js') }}"></script>
+{# Removed {% block js_btm %} - Assuming DT/Spin/jQuery are loaded in parent template #}
+
+
+{# --- Inline Page Specific JavaScript --- #}
+{% block inline_page_scripts %}
+<script type="text/javascript">
+    // Wait for the DOM to be ready (using jQuery since it's loaded)
+    $(document).ready(function(){
+        // Ensure Spin plugin and jQuery are loaded
+        if (typeof $.fn.spin !== 'undefined' && typeof $ !== 'undefined') {
+            // Configure and start the spinner
+            $.fn.spin.presets.flower = {
+                lines: 13,
+                length: 30,
+                width: 10,
+                radius: 30,
+                className: 'spinner',
+                color: '#000' // Example: ensure color is set if default isn't visible
+            }
+            $('#loading').spin('flower');
+        } else {
+            console.error("jQuery or jQuery Spin plugin not loaded.");
+            // Optionally show table immediately if spinner fails
+            $('#datatable').show();
+            $('#clear').show(); // Also show button if spinner fails
+        }
+
+        // Ensure DataTables and jQuery are loaded
+        if (typeof $.fn.dataTable !== 'undefined' && typeof $ !== 'undefined') {
+            // Initialize DataTables
+            $('#cameras-table').dataTable({
+                responsive: true,
+                stateSave: true,
+                stateDuration: 60 * 60 * 24, // Save state for 1 day
+                pagingType: "full_numbers", // Or "simple_numbers", etc.
+                language: {
+                    // Customize language strings as needed
+                    info: "Showing _START_ to _END_ of _TOTAL_ cameras",
+                    infoEmpty: "No cameras found",
+                    emptyTable: " ", // Avoids default "No data available in table" if loading takes time
+                    infoFiltered: "(filtered from _MAX_ total entries)",
+                    lengthMenu: "Show _MENU_ entries",
+                    search: "Search:",
+                    paginate: {
+                        first:    "First",
+                        last:     "Last",
+                        next:     "Next",
+                        previous: "Previous"
+                    },
+                },
+                // Callback function when table is fully initialized
+                initComplete: function(settings, json) {
+                    // Stop and hide the spinner
+                    if (typeof $.fn.spin !== 'undefined') {
+                        $('#loading').stop().hide(); // Chain stop() and hide()
+                    } else {
+                        $('#loading').hide(); // Hide even if spin wasn't defined
+                    }
+                    // Show the table and the "New Camera" button
+                    $('#datatable').show();
+                    $('#clear').css('display', 'inline-block'); // Use inline-block as before
+                },
+                // Handle potential errors during AJAX loading (if applicable)
+                // ajax: { error: function(jqXHR, textStatus, errorThrown){ ... } }
+            });
+        } else {
+            console.error("jQuery or DataTables plugin not loaded.");
+             // Optionally show table immediately if DataTables fails
+            $('#datatable').show();
+            $('#clear').show();
+            $('#loading').hide();
+        }
+    });
+</script>
 {% endblock %}
