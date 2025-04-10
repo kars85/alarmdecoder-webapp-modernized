@@ -1,4 +1,4 @@
-{% from "macros/_form.html" import render_form %}
+﻿{% from "macros/_form.html" import render_form %}
 
 {% extends 'settings/layout.html' %}
 
@@ -39,7 +39,7 @@
     <div id="zone_scanning"></div>
     <div class="progress_label" style="display: none;">Starting Scan...</div>
     <div id="progressbar" style="display: none;"></div>
-    <a id="clear" class="btn btn-primary" href="{{ url_for('zones.create') }}">New Zone</a>&nbsp;<button id="importZone" class="btn btn-primary">Scan Panel</button>
+    <a id="clear" class="btn btn-primary" href="{{ url_for('zones.create') }}">New Zone</a>&nbsp;<button id="importZone" class="btn btn-primary">Scan card</button>
 </div>
 {% endblock %}
 

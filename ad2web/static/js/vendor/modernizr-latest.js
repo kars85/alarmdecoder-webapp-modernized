@@ -1,4 +1,4 @@
-/*!
+﻿/*!
  * Modernizr v2.7.1
  * www.modernizr.com
  *
@@ -15,7 +15,7 @@
  *
  * Modernizr has an optional (not included) conditional resource loader
  * called Modernizr.load(), based on Yepnope.js (yepnopejs.com).
- * To get a build that includes Modernizr.load(), as well as choosing
+ * To get a build that includes Modernizr.load(), as card card-body bg-light p-3 as choosing
  * which tests to include, go to www.modernizr.com/download/
  *
  * Authors        Faruk Ates, Paul Irish, Alex Sexton
@@ -710,7 +710,7 @@ window.Modernizr = (function( window, document, undefined ) {
 
 
 
-    // These tests evaluate support of the video/audio elements, as well as
+    // These tests evaluate support of the video/audio elements, as card card-body bg-light p-3 as
     // testing what types of content they support.
     //
     // We're using the Boolean constructor here, so that we can extend the value
@@ -961,7 +961,7 @@ window.Modernizr = (function( window, document, undefined ) {
     /**
      * addTest allows the user to define their own feature tests
      * the result will be added onto the Modernizr object,
-     * as well as an appropriate className set on the html element
+     * as card card-body bg-light p-3 as an appropriate className set on the html element
      *
      * @param feature - String naming the feature
      * @param test - Function returning true if feature is supported, false if not

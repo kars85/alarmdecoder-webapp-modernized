@@ -1,4 +1,4 @@
-/**
+﻿/**
  * swagger-ui - Swagger UI is a dependency-free collection of HTML, JavaScript, and CSS assets that dynamically generate beautiful documentation from a Swagger-compliant API
  * @version v2.1.4
  * @link http://swagger.io
@@ -15133,7 +15133,7 @@ var support = {};
    * Detect if properties shadowing those on `Object.prototype` are non-enumerable.
    *
    * In IE < 9 an object's own properties, shadowing non-enumerable ones,
-   * are made non-enumerable as well (a.k.a the JScript `[[DontEnum]]` bug).
+   * are made non-enumerable as card card-body bg-light p-3 (a.k.a the JScript `[[DontEnum]]` bug).
    *
    * @memberOf _.support
    * @type boolean

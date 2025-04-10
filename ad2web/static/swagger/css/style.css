@@ -1,4 +1,4 @@
-.swagger-section #header a#logo {
+﻿.swagger-section #header a#logo {
   font-size: 1.5em;
   font-weight: bold;
   text-decoration: none;
@@ -18,10 +18,10 @@
 .navbar-fixed-top .navbar-brand {
   height: auto;
 }
-.navbar-header {
+. {
   height: auto;
 }
-.navbar-inverse {
+.navbar-dark bg-dark {
   background-color: #000;
   border-color: #000;
 }
@@ -35,7 +35,7 @@
 h1 {
   font-size: 60px;
 }
-.navbar-default .navbar-header .navbar-brand {
+.navbar-light bg-light . .navbar-brand {
   color: #a2dfee;
 }
 /* tag titles */
@@ -56,8 +56,8 @@ h1 {
   font-family: 'Arvo', serif;
   font-weight: bold;
 }
-.navbar-default .navbar-collapse,
-.navbar-default .navbar-form {
+.navbar-light bg-light .navbar-collapse,
+.navbar-light bg-light .d-flex {
   border-color: #0A0A0A;
 }
 .container1 {
@@ -102,16 +102,16 @@ h1 {
 .bg-primary {
   background-color: #00468b;
 }
-.navbar-default .nav > li > a,
-.navbar-default .nav > li > a:focus {
+.navbar-light bg-light .nav > li > a,
+.navbar-light bg-light .nav > li > a:focus {
   color: #08b;
 }
-.navbar-default .nav > li > a,
-.navbar-default .nav > li > a:hover {
+.navbar-light bg-light .nav > li > a,
+.navbar-light bg-light .nav > li > a:hover {
   color: #08b;
 }
-.navbar-default .nav > li > a,
-.navbar-default .nav > li > a:focus:hover {
+.navbar-light bg-light .nav > li > a,
+.navbar-light bg-light .nav > li > a:focus:hover {
   color: #08b;
 }
 .text-faded {
@@ -217,7 +217,7 @@ h2 {
 .dropdown-menu {
   padding: 15px;
 }
-.navbar-right .dropdown-menu {
+.ms-auto .dropdown-menu {
   left: 0;
   right: auto;
 }
@@ -228,7 +228,7 @@ h2 {
   font-weight: bold;
   color: #08b;
 }
-.navbar-default .nav > li .details {
+.navbar-light bg-light .nav > li .details {
   color: #000000;
   text-transform: none;
   font-size: 15px;
@@ -238,7 +238,7 @@ h2 {
   line-height: 20px;
   top: -2px;
 }
-.navbar-default .nav > li .details:hover {
+.navbar-light bg-light .nav > li .details:hover {
   color: black;
 }
 #signout {

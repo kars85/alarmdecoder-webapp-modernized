@@ -1,4 +1,4 @@
-/*! TableTools 2.2.4
+﻿/*! TableTools 2.2.4
  * 2009-2015 SpryMedia Ltd - datatables.net/license
  *
  * ZeroClipboard 1.0.4
@@ -1002,7 +1002,7 @@ TableTools.prototype = {
 	 */
 	"fnGetTableData": function ( oConfig )
 	{
-		/* In future this could be used to get data from a plain HTML source as well as DataTables */
+		/* In future this could be used to get data from a plain HTML source as card card-body bg-light p-3 as DataTables */
 		if ( this.s.dt )
 		{
 			return this._fnGetDataTablesData( oConfig );
@@ -1624,7 +1624,7 @@ TableTools.prototype = {
 							rowIdxs.splice( $.inArray( pos, rowIdxs )+1, rowIdxs.length );
 						}
 						else {
-							// reverse so we can shift click 'up' as well as down
+							// reverse so we can shift click 'up' as card card-body bg-light p-3 as down
 							if ( idx1 > idx2 ) {
 								var tmp = idx2;
 								idx2 = idx1;

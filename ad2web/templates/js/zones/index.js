@@ -1,4 +1,4 @@
-{% include 'js/setup/enrollment.js' %}
+﻿{% include 'js/setup/enrollment.js' %}
 <script type="text/javascript">
     $(document).ready(function(){
         $.fn.spin.presets.flower = {
@@ -59,7 +59,7 @@
         }
         $('#importZone').on('click', function() {
             $.confirm({
-                content: "This will take a few minutes - this will also delete existing configured zones from the WebApp.<br/>This is not compatible with SE panels or panels without AUI support.  You do not need an AUI keypad, your panel just needs to support one.",
+                content: "This will take a few minutes - this will also delete existing configured zones from the WebApp.<br/>This is not compatible with SE panels or panels without AUI support.  You do not need an AUI keypad, your card just needs to support one.",
                 title: "Scan Alarm for Zones?",
                 confirm: function(button) {
                     $('#zone_scanning').spin('flower');

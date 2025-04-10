@@ -1,4 +1,4 @@
-{% from "macros/_form.html" import render_form %}
+﻿{% from "macros/_form.html" import render_form %}
 
 {% set page_title = 'Keypad' %}
 
@@ -285,7 +285,7 @@
             //handle messages from the AlarmDecoder
             PubSub.subscribe('message', function(type, msg) {
                 cursor_location = -1;
-                if( msg.message_type == 'panel')
+                if( msg.message_type == 'card')
                 {
                     if( msg.cursor_location )
                         cursor_location = msg.cursor_location;

@@ -1,4 +1,4 @@
-{% from "macros/_form.html" import render_form %}
+﻿{% from "macros/_form.html" import render_form %}
 <title>Diagnostics</title>
 {% extends 'settings/layout.html' %}
 
@@ -22,7 +22,7 @@
     <br/>
     {% if settings['mode'] == 'ADEMCO' %}
     <div id="queryEventLog">
-        <button type="button" class="btn btn-primary" id="startEventQuery">Panel Event Log</button>
+        <button type="button" class="btn btn-primary" id="startEventQuery">card Event Log</button>
     </div>
     {% endif %}
     <div id="device_settings">
@@ -51,7 +51,7 @@
                     <td>Deduplicate</td><td>{{settings['deduplicate']}}</td>
                 </tr>
                 <tr>
-                    <td>Panel Type</td><td>{{settings['mode']}}</td>
+                    <td>card Type</td><td>{{settings['mode']}}</td>
                 </tr>
                 <tr>
                     <td>Firmware version</td><td>{{settings['firmware']}}</td>
@@ -93,7 +93,7 @@
         </div>
     </div>
 </div>
-<div id="dialog" style="Display: none;" title="Panel Event Log">
+<div id="dialog" style="Display: none;" title="card Event Log">
     <div id="numDevices" style="font-weight: Bold;"></div>
     <div id="logEntries">
         <textarea id="textLogEntries" style="width: 450; height: 350;"></textarea><br/><button name="btnCopy" id="btnCopy" class="btn btn-primary">Copy to Clipboard</button>

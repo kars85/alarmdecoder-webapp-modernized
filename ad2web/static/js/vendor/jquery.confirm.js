@@ -1,4 +1,4 @@
-/**
+﻿/**
  * jquery.confirm
  *
  * @version 1.2
@@ -58,10 +58,10 @@
         }, options);
 
         // Modal
-        var modalHeader = '<div class="modal-header">' + '<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>' + '<h4 class="modal-title">' + settings.title + '</h4>' + '</div>';
-        var buttons = '<button class="confirm btn btn-primary" type="button" data-dismiss="modal">'
+        var modalHeader = '<div class="modal-header">' + '<button type="button" class="close" data-bs-dismiss="modal" aria-hidden="true">&times;</button>' + '<h4 class="modal-title">' + settings.title + '</h4>' + '</div>';
+        var buttons = '<button class="confirm btn btn-primary" type="button" data-bs-dismiss="modal">'
             + settings.confirmButton + '</button>'
-            + '<button class="cancel btn" type="button" data-dismiss="modal">'
+            + '<button class="cancel btn" type="button" data-bs-dismiss="modal">'
             + settings.cancelButton + '</button>';
         var modalHTML = '<div class="confirmation-modal modal hide fade" tabindex="-1" role="dialog">'
             + '<div class="modal-dialog">'

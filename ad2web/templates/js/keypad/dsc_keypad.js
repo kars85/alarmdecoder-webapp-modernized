@@ -1,4 +1,4 @@
-    <script type="text/javascript">
+﻿    <script type="text/javascript">
         String.prototype.replaceAt = function(index, str) {
             return this.substr(0, index) + str + this.substr(index+1);
         }
@@ -526,7 +526,7 @@
             //handle messages from the AlarmDecoder
             PubSub.subscribe('message', function(type, msg) {
                 cursor_location = -1;
-                if( msg.message_type == 'panel')
+                if( msg.message_type == 'card')
                 {
                     if( msg.cursor_location )
                         cursor_location = msg.cursor_location;

@@ -1,4 +1,4 @@
-{% include 'js/setup/enrollment.js' %}
+﻿{% include 'js/setup/enrollment.js' %}
 <script type="text/javascript">
     addresses = [];
     new_address = 18;
@@ -154,14 +154,14 @@
             FastClick.attach(document.body);
         });
 
-        createFormTooltip('[id^=panel_mode]', 'Which type of panel do you have?');
+        createFormTooltip('[id^=panel_mode]', 'Which type of card do you have?');
         createFormTooltip('#keypad_address', 'The address of your keypad.  18 default.\n\nFor SE Panels, Address 31 must be set.\n\nDSC Partition between 1 and 8.');
         createFormTooltip('#address_mask', 'This features allows you to select specific keypad addresses to listen to. 32-bit Hex Number. \n\nDefault: FFFFFFFF');
         createFormTooltip('#internal_address_mask', 'The internal address mask allows you to further filter messages to be interpreted by the webapp. 32-bit Hex Number. \n\nDefault: FFFFFFFF');
         createFormTooltip('[id^=zone_expanders]', 'Enable zone expander emulation support?');
         createFormTooltip('[id^=relay_expanders]', 'Enable relay expander emulation support?');
         createFormTooltip('#lrr_enabled', 'Enable Long Range Radio emulation support?');
-        createFormTooltip('#deduplicate', 'The availability to remove repetitive messages. This in conjunction with the Address Mask will remove duplicate alarm messages the panel produces.');
+        createFormTooltip('#deduplicate', 'The availability to remove repetitive messages. This in conjunction with the Address Mask will remove duplicate alarm messages the card produces.');
         buttonAtRight("#address_mask_builder", "#address_mask", 150);
         buttonAtRight("#internal_address_mask_builder", "#internal_address_mask", 150);
 
@@ -286,10 +286,10 @@
                     $('#info_dialog').dialog("close");
                     $('#loading').stop();
                     $('#loading').hide();
-                    $.alert('Seems we are not supporting AUI commands at this time.  Does your panel support AUI?  Is AUI enabled?  If not, proceed with manual setup.');
+                    $.alert('Seems we are not supporting AUI commands at this time.  Does your card support AUI?  Is AUI enabled?  If not, proceed with manual setup.');
                 }
             }
-            if( msg.message_type == "panel" )
+            if( msg.message_type == "card" )
             {
                 if( state == states['programmingMode'] )
                 {
@@ -383,7 +383,7 @@
                         else
                         {
                             state = states['unsupported'];
-                            $.alert("Unable to get response from AUI command.  Possibly unsupported. Setting Address 31 in case of SE Panel");
+                            $.alert("Unable to get response from AUI command.  Possibly unsupported. Setting Address 31 in case of SE card");
                             new_address = 31;
                             $('#keypad_address').val(new_address);
                         }
@@ -393,7 +393,7 @@
                     {
                         ascii = parseAUIMessage(prefix, value);
                         $('#panel_version').css('font-weight', 'Bold');
-                        $('#panel_version').text('Panel Model: ' + ascii);
+                        $('#panel_version').text('card Model: ' + ascii);
                         $('#panel_version').show();
                         state = states['getPanelTypeDone'];
                         decoder.emit('keypress', "K18\r\n");
@@ -405,7 +405,7 @@
                 {
                     ascii = parseAUIMessage(prefix, value);
                     $('#panel_firmware').css('font-weight', 'Bold');
-                    $('#panel_firmware').text('Panel Firmware Version: ' + ascii);
+                    $('#panel_firmware').text('card Firmware Version: ' + ascii);
                     $('#panel_firmware').show();
                     state = states['getFirmwareDone'];
                     decoder.emit('keypress', "K18\r\n");
@@ -438,7 +438,7 @@
                             max_address = Math.max.apply(null, addresses);
                             if( panelDefinitions[panelType] === "undefined" )
                             {
-                                $.alert("Unable to find your panel definition of addresses in the javascript, please try manually entering your information");
+                                $.alert("Unable to find your card definition of addresses in the javascript, please try manually entering your information");
                             }
                             else
                             {
@@ -473,12 +473,12 @@
                                 {
                                     if( panelDefinitions[panelType][0] == "31" )
                                     {
-                                        $.alert("Somehow we've made it this far with an SE Panel?? Setting to address 31.");
+                                        $.alert("Somehow we've made it this far with an SE card?? Setting to address 31.");
                                         $('#keypad_address').val(31);
                                     }
                                     else
                                     {
-                                        $.alert("Unable to find address slot in panel definition, please confirm you have a free keypad slot and your panel addresses are defined within the app. (enrollment.js)");
+                                        $.alert("Unable to find address slot in card definition, please confirm you have a free keypad slot and your card addresses are defined within the app. (enrollment.js)");
                                     }
                                 }
                             }
@@ -504,12 +504,12 @@
         $('#getPanelInfo').on('click', function() {
 $.confirm({
                 content: "WARNING: This can have adverse effects on some panels, specifically DSC panels.  Do you wish to continue?",
-                title: "Get Panel Info Confirmation",
+                title: "Get card Info Confirmation",
                 confirm: function(button) {
                     $('#loading').show();
                     $('#loading').spin('flower');
                     $('#info_dialog').dialog({
-                        title: "Panel Information",
+                        title: "card Information",
                         modal: false,
                         minWidth: 450,
                         maxWidth: 450,

@@ -1,4 +1,4 @@
-<script type="text/javascript">
+﻿<script type="text/javascript">
     var iCnt = 0;
     $(document).ready(function() {
         $(".form-box fieldset").prepend($('#notification-type-wrapper'));
@@ -117,7 +117,7 @@
 function addField()
 {
     $('#custom_values_help').show();
-    var newInput = '<div class="control-group" id="form_field-custom_values-' + iCnt + '"><div class="controls"><div class="control-group" style="display: inline-block;"><label for="form_field-custom_values-' + iCnt + '-custom_key" class="control-label">Custom Key</label><div class="controls"><input type="text" id="form_field-custom_values-' + iCnt + '-custom_key" name="form_field-custom_values-' + iCnt + '-custom_key"/>&nbsp;</div></div><div class="control-group" style="display: inline-block;"><label for="form_field-custom_values-' + iCnt + '-custom_value" class="control-label">Custom Value</label><div class="controls"><input type="text" id="form_field-custom_values-' + iCnt + '-custom_value" name="form_field-custom_values-' + iCnt + '-custom_value" class="custom_value"/></div><span class="help-inline"></span></div><a href="#" id="remove_field' + iCnt + '" class="remove_field"><img alt="Remove" title="Remove" src="{{ url_for("static", filename="img/red_x.png") }}"></a></div>';
+    var newInput = '<div class="control-group" id="form_field-custom_values-' + iCnt + '"><div class="controls"><div class="control-group" style="display: inline-block;"><label for="form_field-custom_values-' + iCnt + '-custom_key" class="col-form-label">Custom Key</label><div class="controls"><input type="text" id="form_field-custom_values-' + iCnt + '-custom_key" name="form_field-custom_values-' + iCnt + '-custom_key"/>&nbsp;</div></div><div class="control-group" style="display: inline-block;"><label for="form_field-custom_values-' + iCnt + '-custom_value" class="col-form-label">Custom Value</label><div class="controls"><input type="text" id="form_field-custom_values-' + iCnt + '-custom_value" name="form_field-custom_values-' + iCnt + '-custom_value" class="custom_value"/></div><span class="help-inline"></span></div><a href="#" id="remove_field' + iCnt + '" class="remove_field"><img alt="Remove" title="Remove" src="{{ url_for("static", filename="img/red_x.png") }}"></a></div>';
     $('#form_field-add_field-group').before(newInput);
     iCnt++;
 }

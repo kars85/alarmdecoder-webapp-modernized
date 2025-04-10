@@ -1,4 +1,4 @@
-{% from "macros/_form.html" import render_form %}
+﻿{% from "macros/_form.html" import render_form %}
 {% extends 'settings/layout.html' %}
 
 {% block title %}Settings{% endblock %}
@@ -20,7 +20,7 @@
     In this area you can setup your device, configure zones or notifications, install certificates, manage users, change code branches, or change your password.
     <p>
         <ul>
-            <li><a href="{{ url_for('notifications.index') }}">Notifications</a>: Configure notifications from panel events.</li>
+            <li><a href="{{ url_for('notifications.index') }}">Notifications</a>: Configure notifications from card events.</li>
             <li><a href="{{ url_for('zones.index') }}">Zones</a>: Add names to zones to notifications.</li>
             {% if ssl == True %}
                 <li><a href="{{ url_for('certificate.index') }}">Certificates</a>: Configure SSL Certificates.</li>

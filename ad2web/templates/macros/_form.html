@@ -1,4 +1,4 @@
-{% macro render_checkbox(field) %}
+﻿{% macro render_checkbox(field) %}
 <div class="control-group{% if field.errors %} error{% endif %}">
     <div class="controls">
         <label for="{{ field.id }}" class="checkbox inline">
@@ -7,7 +7,7 @@
         <span class="help-inline">{{ field.description }}</span>
         {% if field.errors -%}
             {% for error in field.errors -%}
-            <span class="help-block error">{{ error|e }}</span>
+            <span class="form-text error">{{ error|e }}</span>
             {%- endfor %}
         {%- endif %}
     </div>
@@ -16,7 +16,7 @@
 
 {% macro render_radio(field) %}
 <div class="control-group{% if field.errors %} error{% endif %}">
-    {{ field.label(class_="control-label") }}
+    {{ field.label(class_="col-form-label") }}
     <div class="controls">
         {% for subfield in field -%}
         <label for="{{ subfield.id }}" class="radio inline">
@@ -26,7 +26,7 @@
         <span class="help-inline">{{ field.description }}</span>
         {% if field.errors -%}
             {% for error in field.errors -%}
-            <span class="help-block error">{{ error }}</span>
+            <span class="form-text error">{{ error }}</span>
             {%- endfor %}
         {%- endif %}
     </div>
@@ -35,7 +35,7 @@
 
 {% macro render_datepicker(field) %}
 <div class="control-group{% if field.errors %} error{% endif %}">
-    <label class="control-label"
+    <label class="col-form-label"
         for="{{ field.id }}">
         {{ field.label }}
     </label>
@@ -44,7 +44,7 @@
         <span class="help-inline">{{ field.description }}</span>
         {% if field.errors -%}
             {% for error in field.errors -%}
-            <span class="help-block error">{{ error }}</span>
+            <span class="form-text error">{{ error }}</span>
             {%- endfor %}
         {%- endif %}
     </div>
@@ -53,7 +53,7 @@
 
 {% macro render_textarea(field) %}
 <div class="control-group{% if field.errors %} error{% endif %}">
-    <label class="control-label"
+    <label class="col-form-label"
         for="{{ field.id }}">
         {{ field.label }}
     </label>
@@ -62,7 +62,7 @@
         <span class="help-inline">{{ field.description }}</span>
         {% if field.errors -%}
             {% for error in field.errors -%}
-            <span class="help-block error">{{ error }}</span>
+            <span class="form-text error">{{ error }}</span>
             {%- endfor %}
         {%- endif %}
     </div>
@@ -71,7 +71,7 @@
 
 {% macro render_input(field) %}
 <div class="control-group{% if field.errors %} error{% endif %}">
-    <label class="control-label"
+    <label class="col-form-label"
         for="{{ field.id }}">
         {{ field.label }}
     </label>
@@ -80,7 +80,7 @@
         <span class="help-inline">{{ field.description }}</span>
         {% if field.errors -%}
             {% for error in field.errors -%}
-            <span class="help-block error">{{ error }}</span>
+            <span class="form-text error">{{ error }}</span>
             {%- endfor %}
         {%- endif %}
     </div>
@@ -89,7 +89,7 @@
 
 {% macro render_password(field) %}
 <div class="control-group{% if field.errors %} error{% endif %}">
-    <label class="control-label"
+    <label class="col-form-label"
         for="{{ field.id }}">
         {{ field.label }}
     </label>
@@ -98,7 +98,7 @@
         <span class="help-inline">{{ field.description }}</span>
         {% if field.errors -%}
             {% for error in field.errors -%}
-            <span class="help-block error">{{ error }}</span>
+            <span class="form-text error">{{ error }}</span>
             {%- endfor %}
         {%- endif %}
     </div>
@@ -157,7 +157,7 @@
         <span class="help-inline">{{ form.description }}</span>
         {% if form.errors -%}
             {% for error in form.errors -%}
-            <span class="help-block error">{{ error }}</span>
+            <span class="form-text error">{{ error }}</span>
             {%- endfor %}
         {%- endif %}
     </div>
@@ -181,7 +181,7 @@
         <span class="help-inline">{{ form.description }}</span>
         {% if form.errors -%}
             {% for error in form.errors -%}
-            <span class="help-block error">{{ error }}</span>
+            <span class="form-text error">{{ error }}</span>
             {%- endfor %}
         {%- endif %}
     </div>

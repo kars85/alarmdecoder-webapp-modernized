@@ -1,4 +1,4 @@
-{% include 'js/setup/enrollment.js' %}
+﻿{% include 'js/setup/enrollment.js' %}
 <script type="text/javascript">
 fullMessages = [];
 
@@ -124,7 +124,7 @@ fullMessages = [];
                 if( state == states['queryLogDone'] && isNaN(numLogEntries) )
                 {
                     state = states['unsupported'];
-                    alert('It would appear your particular honeywell panel does not support this');
+                    alert('It would appear your particular honeywell card does not support this');
                 }
             }
         });

@@ -1,4 +1,4 @@
-    <script type="text/javascript">
+﻿    <script type="text/javascript">
         //are we paused?
         var bPaused = false;
         //store messages when paused, display later
@@ -37,15 +37,15 @@
                     {
                         for( i = 0; i < messagesBacklog.length; i++ )
                         {
-                            $('#panel-log').dataTable().fnAddData([messagesBacklog[i].tstamp, messagesBacklog[i].message], false);
-                            $('#panel-log').dataTable().fnStandingRedraw();
+                            $('#card-log').dataTable().fnAddData([messagesBacklog[i].tstamp, messagesBacklog[i].message], false);
+                            $('#card-log').dataTable().fnStandingRedraw();
                         }
                         //empty the backlog array as we've added the contents to the table already
                         messagesBacklog = [];
                         messagesBacklog.length = 0;
                     }
-                    $('#panel-log').dataTable().fnAddData([ timestamp, msg.raw], false);
-                    $('#panel-log').dataTable().fnStandingRedraw();
+                    $('#card-log').dataTable().fnAddData([ timestamp, msg.raw], false);
+                    $('#card-log').dataTable().fnStandingRedraw();
                 }
                 else
                 {
@@ -61,7 +61,7 @@
                 className: 'spinner',
             }
             $('#loading').spin('flower');
-            var oTable = $('#panel-log').dataTable({
+            var oTable = $('#card-log').dataTable({
                 "oTableTools": {
                     "aButtons": [ "print",
                                 {

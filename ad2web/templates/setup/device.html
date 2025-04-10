@@ -1,4 +1,4 @@
-{% from "macros/_form.html" import render_form %}
+﻿{% from "macros/_form.html" import render_form %}
 
 {% extends 'setup/layout.html' %}
 
@@ -30,12 +30,12 @@
     <h3>AlarmDecoder Settings</h3>
     <div>
         <p>
-            Finally, we need to configure the AlarmDecoder itself.  Most of these settings are fine when set to the default, but the Keypad Address needs to be configured specific to your panel.
+            Finally, we need to configure the AlarmDecoder itself.  Most of these settings are fine when set to the default, but the Keypad Address needs to be configured specific to your card.
         </p>
         <p>
-              "SE" panels need to be set to address 31 but on other panels you are welcome to use any free keypad address you have after it has been enabled on your panel.  Check your panel documentation, or call your alarm system provider, to add one for the AlarmDecoder to use.
+              "SE" panels need to be set to address 31 but on other panels you are welcome to use any free keypad address you have after it has been enabled on your card.  Check your card documentation, or call your alarm system provider, to add one for the AlarmDecoder to use.
         </p>
-        <p id="honeywellHelper">For some Honeywell/Ademco panels, clicking the Get Panel Info button will provide you with your installer code and more.  This only works on panels that support the AUI protocol.  You will be notified if it is not supported when you click.
+        <p id="honeywellHelper">For some Honeywell/Ademco panels, clicking the Get card Info button will provide you with your installer code and more.  This only works on panels that support the AUI protocol.  You will be notified if it is not supported when you click.
         </p>
     </div>
 <div id="info_dialog" style="display: none;">
@@ -54,7 +54,7 @@
     <div class="progress_label" style="display: none;">Starting...</div>
     <div id="progressbar" style="display: none;"></div>
 </div>
-    <button id="getPanelInfo" class="btn btn-primary">Get Panel Info</button><br/><br/><div id="loading"></div>
+    <button id="getPanelInfo" class="btn btn-primary">Get card Info</button><br/><br/><div id="loading"></div>
     {{ render_form(url_for('setup.device'), form) }}
     <button id="address_mask_builder">Build Address Mask</button>
     <button id="internal_address_mask_builder">Build Address Mask</button>

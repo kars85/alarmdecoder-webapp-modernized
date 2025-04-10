@@ -1,4 +1,4 @@
-{% from "macros/_form.html" import render_form %}
+﻿{% from "macros/_form.html" import render_form %}
 
 
 {% extends 'layouts/base.html' %}
@@ -23,7 +23,7 @@
         </div>
         <div style="float: right;">
             <strong><font color="red">Warning!</font></strong>&nbsp; Be sure to <a href="{{ url_for('settings.export') }}">Export</a> your settings first as a backup if this fails. If this fails it may be necessary to install a fresh image.<br/>Update both AlarmDecoderLibrary and AlarmDecoderWebapp but do not reboot until they are both updated.<br/>
-            <a class="btn btn-default" href="{{ url_for('update.check_for_updates') }}">Check for updates</a>
+            <a class="btn btn-secondary" href="{{ url_for('update.check_for_updates') }}">Check for updates</a>
         </div>
 
         <div style="padding-top: 30px; clear: both;">
