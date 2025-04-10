@@ -28,3 +28,9 @@ env
 temp
 webapp.sublime-*
 /.venv/
+_pgbackup/
+_pginfo/
+bootstrap3_audit/
+bootstrap3_backup/
+bootstrap3_migration_logs/
+*_old

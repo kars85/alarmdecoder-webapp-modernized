@@ -1,0 +1,544 @@
+﻿# Save this as Bootstrap3To5-Migration-Framework.ps1
+# FINAL VERSION - Removed jQuery Update Phase for Reliability
+
+param(
+    # CORRECTED: Removed "jQuery" from ValidateSet
+    [Parameter(Mandatory=$false)]
+    [ValidateSet("Analyze", "Backup", "Classes", "Components", "Validate")]
+    [string]$Phase = "Analyze",
+
+    [Parameter(Mandatory=$false)]
+    [string]$TargetDirectory = ".",
+
+    [Parameter(Mandatory=$false)]
+    [switch]$DryRun,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$Force
+)
+
+# Configuration
+$backupDir = Join-Path $TargetDirectory "bootstrap3_backup"
+$logDir = Join-Path $TargetDirectory "bootstrap3_migration_logs"
+$extensions = '*.html', '*.htm', '*.js', '*.css', '*.cshtml', '*.razor', '*.vue', '*.jsx', '*.tsx'
+
+# Create log directory if it doesn't exist
+if (-not (Test-Path $logDir -PathType Container)) {
+    try {
+        New-Item -ItemType Directory -Force -Path $logDir -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Error "Failed to create log directory '$logDir'. Error: $($_.Exception.Message)"
+        exit 1
+    }
+}
+
+# Start logging
+$logFile = Join-Path $logDir "migration_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+try {
+    Start-Transcript -Path $logFile -Append -ErrorAction Stop
+} catch {
+    Write-Error "Failed to start transcript logging to '$logFile'. Error: $($_.Exception.Message)"
+    exit 1
+}
+
+
+function Write-MigrationLog {
+    param(
+        [string]$Message,
+        [string]$Type = "Info" # Types: Info, Success, Warning, Error
+    )
+
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $color = switch ($Type) {
+        "Info"    { [System.ConsoleColor]::White }
+        "Success" { [System.ConsoleColor]::Green }
+        "Warning" { [System.ConsoleColor]::Yellow }
+        "Error"   { [System.ConsoleColor]::Red }
+        default   { [System.ConsoleColor]::White }
+    }
+
+    $logEntry = "[$timestamp] [$Type] $Message"
+    Write-Output $logEntry
+    Write-Host $logEntry -ForegroundColor $color
+}
+
+function Backup-ProjectFiles {
+    # Uses script-scoped: $TargetDirectory, $backupDir, $Force, $extensions
+    # Uses function: Write-MigrationLog
+
+    # Ensure target directory exists
+    if (-not (Test-Path $TargetDirectory -PathType Container)) {
+        Write-MigrationLog "Target directory '$TargetDirectory' not found." "Error"
+        return $false # Indicate failure
+    }
+
+    # --- CORRECTED PATH NORMALIZATION ---
+    # Resolve TargetDirectory to a full, absolute path for reliable substring calculation later
+    try {
+        $targetDirFullPath = (Resolve-Path -Path $TargetDirectory).Path
+    } catch {
+        Write-MigrationLog "Error resolving Target Directory path '$TargetDirectory': $($_.Exception.Message)" "Error"
+        return $false
+    }
+    # Normalize by removing any trailing slashes for consistent Substring length calculation
+    $targetDirNormalized = $targetDirFullPath.TrimEnd('\/')
+    # --- END CORRECTION ---
+
+    # Use the script-scoped $backupDir directly (already absolute relative to $TargetDirectory)
+    Write-MigrationLog "Using backup directory: $backupDir" "Info"
+    Write-MigrationLog "Resolved Target Directory: $targetDirNormalized" "Info" # Log resolved path
+
+    if (Test-Path $backupDir) {
+        if (-not $Force) {
+            Write-MigrationLog "Backup directory '$backupDir' already exists. Use -Force to overwrite." "Warning"
+            return $false # Indicate backup wasn't performed / user needs to Force
+        }
+        else {
+            Write-MigrationLog "Removing existing backup directory '$backupDir' due to -Force..." "Warning"
+            try {
+                Remove-Item -Path $backupDir -Recurse -Force -ErrorAction Stop
+                Write-MigrationLog "Existing backup directory removed." "Success"
+            } catch {
+                Write-MigrationLog "Error removing existing backup directory '$backupDir': $($_.Exception.Message)" "Error"
+                return $false # Indicate failure
+            }
+        }
+    }
+
+    Write-MigrationLog "Creating backup directory: $backupDir" "Info"
+    try {
+        New-Item -ItemType Directory -Force -Path $backupDir -ErrorAction Stop | Out-Null
+    } catch {
+        Write-MigrationLog "Error creating backup directory '$backupDir': $($_.Exception.Message)" "Error"
+        return $false # Indicate failure
+    }
+
+    Write-MigrationLog "Starting backup of project files from '$targetDirFullPath'..." "Info" # Use full path in log
+    $fileCount = 0
+    $exclusionRegex = 'node_modules[\\/]|dist[\\/]|bin[\\/]|obj[\\/]|[\\/]packages[\\/]|[\\/]\.git[\\/]|[\\/]\.vs[\\/]|[\\/]bootstrap3_backup[\\/]|[\\/]bootstrap3_migration_logs[\\/]'
+
+    try {
+        # Get all files matching extensions, excluding specified directories
+        Get-ChildItem -Path $targetDirFullPath -Recurse -Include $extensions -File -ErrorAction SilentlyContinue | ForEach-Object { # Use full path here too
+            $fileObject = $_
+            # $targetDirNormalized is already defined and absolute outside the loop
+
+            # Safety check for path length using the ALREADY NORMALIZED absolute path
+            if ($fileObject.FullName.Length -le $targetDirNormalized.Length) {
+                Write-Verbose "[Backup] Skipping file with path shorter/equal to target: $($fileObject.FullName)"
+                return # Continue to next file
+            }
+
+            # --- CORRECTED RELATIVE PATH CALCULATION ---
+            # Calculate relative path based on the resolved, normalized absolute path
+            $relativePath = $fileObject.FullName.Substring($targetDirNormalized.Length).TrimStart('\/')
+            # --- END CORRECTION ---
+
+            # Apply exclusion filter using the relative path
+            if ($relativePath -match $exclusionRegex) {
+                Write-Verbose "[Backup] Skipping excluded file: $relativePath"
+                return # Continue to next file
+            }
+
+            # Proceed with backup for non-excluded files
+            try {
+                $sourcePath = $fileObject.FullName
+                # Construct destination path using the backup directory and the calculated relative path
+                $destinationPath = Join-Path $backupDir $relativePath
+                $destinationFolder = Split-Path $destinationPath -Parent
+
+                # Ensure destination directory exists before copying
+                if (-not (Test-Path $destinationFolder -PathType Container)) {
+                    # Create directory using the calculated absolute path
+                    New-Item -ItemType Directory -Force -Path $destinationFolder -ErrorAction Stop | Out-Null
+                }
+
+                # Copy item using absolute source and calculated absolute destination paths
+                Copy-Item -Path $sourcePath -Destination $destinationPath -Force -ErrorAction Stop
+                $fileCount++
+                Write-Verbose "[Backup] Backed up: $relativePath to $destinationPath" # Log destination for debugging
+            }
+            catch {
+                # Log error for specific file and continue with others
+                # Include the calculated destination path in the error for better debugging
+                Write-MigrationLog "Error backing up file '$($fileObject.FullName)' to '$destinationPath': $($_.Exception.Message)" "Error"
+            }
+        } # End ForEach-Object
+
+        Write-MigrationLog "Backup completed: $fileCount files backed up to '$backupDir'" "Success"
+        return $true # Indicate success
+
+    } catch {
+        # Catch errors during Get-ChildItem or major issues in the loop
+        Write-MigrationLog "An unexpected error occurred during the file enumeration or backup process: $($_.Exception.Message)" "Error"
+        Write-MigrationLog "StackTrace: $($_.ScriptStackTrace)" "Error"
+        return $false # Indicate failure
+    }
+}
+
+function Update-ClassNames {
+    Write-MigrationLog "Defining Bootstrap 3 to 5 class name replacements..." "Info"
+    # These keys are simple enough not to require escaping or variables
+    $classReplacements = @{
+        '\bcol-xs-(\d+)\b' = 'col-$1'; '\bcol-sm-(\d+)\b' = 'col-sm-$1'; '\bcol-md-(\d+)\b' = 'col-md-$1'; '\bcol-lg-(\d+)\b' = 'col-lg-$1'
+        '\bcol-xs-offset-(\d+)\b' = 'offset-$1'; '\bcol-sm-offset-(\d+)\b' = 'offset-sm-$1'; '\bcol-md-offset-(\d+)\b' = 'offset-md-$1'; '\bcol-lg-offset-(\d+)\b' = 'offset-lg-$1'
+        '\bcol-(xs|sm|md|lg)-push-(\d+)\b' = 'col-$1 /* BOOTSTRAP 5 MIGRATION: Review BS3 col-$1-push-$2 replacement, consider order-* */'
+        '\bcol-(xs|sm|md|lg)-pull-(\d+)\b' = 'col-$1 /* BOOTSTRAP 5 MIGRATION: Review BS3 col-$1-pull-$2 replacement, consider order-* */'
+        '\bvisible-xs(?:-block|-inline|-inline-block)?\b' = 'd-block d-sm-none'
+        '\bvisible-sm(?:-block|-inline|-inline-block)?\b' = 'd-none d-sm-block d-md-none'
+        '\bvisible-md(?:-block|-inline|-inline-block)?\b' = 'd-none d-md-block d-lg-none'
+        '\bvisible-lg(?:-block|-inline|-inline-block)?\b' = 'd-none d-lg-block d-xl-none'
+        '\bvisible-xl(?:-block|-inline|-inline-block)?\b' = 'd-none d-xl-block d-xxl-none'
+        '\bhidden-xs\b' = 'd-none d-sm-block'; '\bhidden-sm\b' = 'd-sm-none d-md-block'; '\bhidden-md\b' = 'd-md-none d-lg-block'
+        '\bhidden-lg\b' = 'd-lg-none d-xl-block'; '\bhidden-xl\b' = 'd-xl-none d-xxl-block'
+        '\bbtn-default\b' = 'btn-secondary'; '\bbtn-xs\b' = 'btn-sm'
+        '\bpanel\b' = 'card'; '\bpanel-heading\b' = 'card-header'; '\bpanel-title\b' = 'card-title'; '\bpanel-body\b' = 'card-body'; '\bpanel-footer\b' = 'card-footer'
+        '\bpanel-primary\b' = 'card mb-3 border-primary'; '\bpanel-success\b' = 'card mb-3 border-success'; '\bpanel-info\b' = 'card mb-3 border-info'
+        '\bpanel-warning\b' = 'card mb-3 border-warning'; '\bpanel-danger\b' = 'card mb-3 border-danger'
+        '\bnavbar-default\b' = 'navbar-light bg-light'; '\bnavbar-inverse\b' = 'navbar-dark bg-dark'; '\bnavbar-toggle\b' = 'navbar-toggler'
+        '\bicon-bar\b' = 'navbar-toggler-icon'; '\bnavbar-header\b' = ''
+        '\bnavbar-right\b' = 'ms-auto'; '\bnavbar-left\b' = 'me-auto'; '\bnavbar-form\b' = 'd-flex'
+        '\bform-control-static\b' = 'form-control-plaintext'; '\bcontrol-label\b' = 'col-form-label'
+        '\binput-group-addon\b' = 'input-group-text';
+        '\bhas-error\b' = 'is-invalid'; '\bhas-success\b' = 'is-valid'; '\bhas-warning\b' = 'is-warning'
+        '\bhelp-block\b' = 'form-text'
+        '\bpull-left\b' = 'float-start'; '\bpull-right\b' = 'float-end'; '\bcenter-block\b' = 'mx-auto d-block'
+        '\bimg-responsive\b' = 'img-fluid'; '\bimg-rounded\b' = 'rounded'; '\bimg-circle\b' = 'rounded-circle'; '\bimg-thumbnail\b' = 'img-thumbnail'
+        '\bthumbnail\b' = 'card'
+        '\blist-inline\s*>\s*li\b' = 'list-inline-item'
+        '\bvisible-print-block\b' = 'd-print-block'; '\bvisible-print-inline\b' = 'd-print-inline'; '\bvisible-print-inline-block\b' = 'd-print-inline-block'
+        '\bhidden-print\b' = 'd-print-none'
+        '\btext-muted\b' = 'text-muted'; '\btext-primary\b' = 'text-primary'; '\btext-success\b' = 'text-success'
+        '\btext-info\b' = 'text-info'; '\btext-warning\b' = 'text-warning'; '\btext-danger\b' = 'text-danger'
+        '\bwell\b' = 'card card-body bg-light p-3';
+        '\bjumbotron\b' = 'p-5 mb-4 bg-light rounded-3'
+        '\bglyphicon\b' = 'bi'
+        '\bglyphicon-([\w-]+)\b' = 'bi-$1'
+    }
+
+    Write-MigrationLog "Starting class name updates..." "Info"
+    $fileCount = 0
+    $totalReplacementsMade = 0
+    $exclusionRegex = 'node_modules[\\/]|dist[\\/]|bin[\\/]|obj[\\/]|[\\/]packages[\\/]|[\\/]\.git[\\/]|[\\/]\.vs[\\/]|[\\/]bootstrap3_backup[\\/]|[\\/]bootstrap3_migration_logs[\\/]'
+    $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding($false)
+
+    foreach ($ext in $extensions) {
+        Get-ChildItem -Path $TargetDirectory -Recurse -Include $ext -File -ErrorAction SilentlyContinue | ForEach-Object {
+            $fileObject = $_
+            $targetDirNormalized = $TargetDirectory.TrimEnd('\/')
+            if ($fileObject.FullName.Length -le $targetDirNormalized.Length) {
+                Write-Verbose "[Classes] Skipping file path shorter/equal to target: $($fileObject.FullName)"
+                return
+            }
+            $relativePath = $fileObject.FullName.Substring($targetDirNormalized.Length).TrimStart('\/')
+
+            if ($relativePath -match $exclusionRegex) {
+                Write-Verbose "[Classes] Skipping excluded file: $relativePath"
+                return
+            }
+
+            try {
+                $file = $fileObject.FullName
+                $content = Get-Content -Path $file -Raw -Encoding UTF8 -ErrorAction Stop
+                $originalContent = $content
+                $replacementsInFile = 0
+
+                foreach ($patternVar in $classReplacements.Keys) {
+                    $replacementValue = $classReplacements[$patternVar]
+                    if ($content -match $patternVar) {
+                        $newContent = $content -replace $patternVar, $replacementValue
+                        if ($newContent -ne $content) {
+                            $matchCount = ([regex]::Matches($content, $patternVar)).Count
+                            $replacementsInFile += $matchCount
+                            $content = $newContent
+                            Write-Verbose "[Classes] Applied pattern '$patternVar' to '$relativePath' ($matchCount matches)"
+                        }
+                    }
+                }
+
+                if ($originalContent -ne $content) {
+                    $fileCount++
+                    $totalReplacementsMade += $replacementsInFile
+
+                    if (-not $DryRun) {
+                        Set-Content -Path $file -Value $content -Encoding $Utf8NoBomEncoding -NoNewline -ErrorAction Stop
+                        Write-MigrationLog "Updated classes in: $relativePath ($replacementsInFile replacements)" "Success"
+                    }
+                    else {
+                        Write-MigrationLog "[DRY RUN] Would update classes in: $relativePath ($replacementsInFile potential replacements)" "Info"
+                    }
+                }
+            }
+            catch {
+                Write-MigrationLog "Error processing file '$($fileObject.FullName)' for class updates: $($_.Exception.Message)" "Error"
+            }
+        } # End ForEach-Object
+    } # End foreach $ext
+
+    Write-MigrationLog "Class name updates completed: $fileCount files potentially modified. Checked for $totalReplacementsMade total pattern occurrences." "Success"
+}
+
+
+function Update-Components {
+    Write-MigrationLog "Defining Bootstrap 3/4 to 5 component structure/attribute replacements..." "Info"
+
+    # Define complex regex patterns as variables first
+    $navbarHeaderPattern = '<div\s+class="navbar-header">\s*<button[^>]+type="button"[^>]+class="[^"]*navbar-toggle[^"]*"[^>]*data-toggle="collapse"[^>]*data-target="([^"]+)"[^>]*>\s*<span class="sr-only">[^<]*</span>\s*(?:<span\s+class="icon-bar">\s*</span>\s*){3}\s*</button>\s*<a[^>]+class="navbar-brand"[^>]*>.*?</a>\s*</div>'
+    $navbarToggleOnlyPattern = '<button[^>]+class="[^"]*navbar-toggle[^"]*"[^>]*data-target="([^"]+)"[^>]*>\s*(?:<span\s+class="icon-bar">\s*</span>\s*){3}\s*</button>'
+    $dropdownTogglePattern = 'dropdown-toggle([^>]*)data-toggle="dropdown"'
+    $leftCarouselPattern = '<a\s+class="left\s+carousel-control"[^>]*href="([^"]+)"[^>]*data-slide="prev"[^>]*>'
+    $rightCarouselPattern = '<a\s+class="right\s+carousel-control"[^>]*href="([^"]+)"[^>]*data-slide="next"[^>]*>'
+    $leftGlyphiconPattern = '<span\s+class="glyphicon\s+glyphicon-chevron-left"[^>]*></span>'
+    $rightGlyphiconPattern = '<span\s+class="glyphicon\s+glyphicon-chevron-right"[^>]*></span>'
+
+    # Use variables as keys for complex patterns
+    # This should now parse correctly without the problematic jQuery function following it
+    $componentUpdates = @{
+        $navbarHeaderPattern = '<a class="navbar-brand" href="#">Brand</a><button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="$1" aria-controls="$1" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>'
+        $navbarToggleOnlyPattern = '<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="$1" aria-controls="$1" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>'
+        $dropdownTogglePattern = 'dropdown-toggle$1data-bs-toggle="dropdown"'
+        'data-toggle="tab"' = 'data-bs-toggle="tab"'
+        'data-toggle="pill"' = 'data-bs-toggle="pill"'
+        $leftCarouselPattern = '<button class="carousel-control-prev" type="button" data-bs-target="$1" data-bs-slide="prev">'
+        $rightCarouselPattern = '<button class="carousel-control-next" type="button" data-bs-target="$1" data-bs-slide="next">'
+        $leftGlyphiconPattern = '<span class="carousel-control-prev-icon" aria-hidden="true"></span><span class="visually-hidden">Previous</span>'
+        $rightGlyphiconPattern = '<span class="carousel-control-next-icon" aria-hidden="true"></span><span class="visually-hidden">Next</span>'
+        '\bdata-toggle="' = 'data-bs-toggle="'
+        '\bdata-target="' = 'data-bs-target="'
+        '\bdata-dismiss="' = 'data-bs-dismiss="'
+        '\bdata-ride="' = 'data-bs-ride="'
+        '\bdata-slide="' = 'data-bs-slide="'
+        '\bdata-slide-to="' = 'data-bs-slide-to="'
+        '\bdata-parent="' = 'data-bs-parent="'
+        '\bdata-spy="' = 'data-bs-spy="'
+        '\bdata-offset="' = 'data-bs-offset="'
+    }
+
+    Write-MigrationLog "Starting component structure and attribute updates..." "Info"
+    $fileCount = 0
+    $totalReplacementsMade = 0
+    $exclusionRegex = 'node_modules[\\/]|dist[\\/]|bin[\\/]|obj[\\/]|[\\/]packages[\\/]|[\\/]\.git[\\/]|[\\/]\.vs[\\/]|[\\/]bootstrap3_backup[\\/]|[\\/]bootstrap3_migration_logs[\\/]'
+    $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding($false)
+
+    foreach ($ext in $extensions) {
+        Get-ChildItem -Path $TargetDirectory -Recurse -Include $ext -File -ErrorAction SilentlyContinue | ForEach-Object {
+            $fileObject = $_
+            $targetDirNormalized = $TargetDirectory.TrimEnd('\/')
+            if ($fileObject.FullName.Length -le $targetDirNormalized.Length) {
+                Write-Verbose "[Components] Skipping file path shorter/equal to target: $($fileObject.FullName)"
+                return
+            }
+            $relativePath = $fileObject.FullName.Substring($targetDirNormalized.Length).TrimStart('\/')
+
+            if ($relativePath -match $exclusionRegex) {
+                Write-Verbose "[Components] Skipping excluded file: $relativePath"
+                return
+            }
+
+            try {
+                $file = $fileObject.FullName
+                $content = Get-Content -Path $file -Raw -Encoding UTF8 -ErrorAction Stop
+                $originalContent = $content
+                $replacementsInFile = 0
+
+                foreach ($patternVar in $componentUpdates.Keys) {
+                    $replacementValue = $componentUpdates[$patternVar]
+                    if ($content -match $patternVar) {
+                        $newContent = $content -replace $patternVar, $replacementValue
+                        if ($newContent -ne $content) {
+                             $matchCount = ([regex]::Matches($content, $patternVar)).Count
+                             $replacementsInFile += $matchCount
+                             $content = $newContent
+                             Write-Verbose "[Components] Applied pattern matching key variable to '$relativePath' ($matchCount matches)"
+                        }
+                    }
+                }
+
+                if ($originalContent -ne $content) {
+                    $fileCount++
+                    $totalReplacementsMade += $replacementsInFile
+
+                    if (-not $DryRun) {
+                        Set-Content -Path $file -Value $content -Encoding $Utf8NoBomEncoding -NoNewline -ErrorAction Stop
+                        Write-MigrationLog "Updated components in: $relativePath ($replacementsInFile replacements)" "Success"
+                    }
+                    else {
+                        Write-MigrationLog "[DRY RUN] Would update components in: $relativePath ($replacementsInFile potential replacements)" "Info"
+                    }
+                }
+            }
+            catch {
+                 Write-MigrationLog "Error processing file '$($fileObject.FullName)' for component updates: $($_.Exception.Message)" "Error"
+            }
+        } # End ForEach-Object
+    } # End foreach $ext
+
+    Write-MigrationLog "Component updates completed: $fileCount files potentially modified. Checked for $totalReplacementsMade total pattern occurrences." "Success"
+}
+
+
+# REMOVED Entire Update-jQueryDependencies function block
+
+
+function Test-MigrationResults {
+    Write-MigrationLog "Validating migration results..." "Info"
+    # Regex patterns without problematic escaping for PowerShell parser
+    $bootstrap3_4Patterns = @(
+        '\b(navbar-toggle|icon-bar|panel|panel-heading|panel-title|panel-body|panel-footer)\b',
+        '\b(btn-default|btn-xs)\b', '\b(pull-left|pull-right|center-block)\b',
+        '\b(hidden-xs|hidden-sm|hidden-md|hidden-lg)\b',
+        '\bvisible-(xs|sm|md|lg)-(block|inline|inline-block)\b',
+        '\b(input-group-addon|form-control-static|help-block)\b', '\bcontrol-label\b',
+        '\bglyphicon\b', '\b(thumbnail|well|jumbotron|page-header)\b',
+        # Note: Lookahead ?! should be fine for regex engine
+        '\bdata-toggle="(?`!dropdown|tab|pill|collapse|modal|offcanvas|tooltip|popover|button|alert|scrollspy|[^"]*bs-)[^"]+"',
+        '\bdata-ride="carousel"\b'
+    )
+    # Still useful to check for remaining jQuery syntax
+    $jQueryIndicatorsRegex = '\$\(|\bjQuery\('
+
+    $exclusionRegex = 'node_modules[\\/]|dist[\\/]|bin[\\/]|obj[\\/]|[\\/]packages[\\/]|[\\/]\.git[\\/]|[\\/]\.vs[\\/]|[\\/]bootstrap3_backup[\\/]|[\\/]bootstrap3_migration_logs[\\/]'
+
+    $issues = [System.Collections.Generic.List[PSCustomObject]]::new()
+    $filesScanned = 0
+    $filesWithIssues = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    try { # Outer try for validation phase
+        foreach ($ext in $extensions) {
+            Get-ChildItem -Path $TargetDirectory -Recurse -Include $ext -File -ErrorAction SilentlyContinue | ForEach-Object {
+                $fileObject = $_
+                $targetDirNormalized = $TargetDirectory.TrimEnd('\/')
+                if ($fileObject.FullName.Length -le $targetDirNormalized.Length) { Write-Verbose "[Validate] Skipping file path shorter/equal: $($fileObject.FullName)"; return }
+                $relativePath = $fileObject.FullName.Substring($targetDirNormalized.Length).TrimStart('\/')
+                if ($relativePath -match $exclusionRegex) { Write-Verbose "[Validate] Skipping excluded file: $relativePath"; return }
+
+                $filesScanned++
+                Write-Verbose "[Validate] Scanning file: $relativePath"
+                $fileContent = $null; $fileHadIssue = $false
+
+                try { # Inner try for file processing
+                    $fileContent = Get-Content -Path $fileObject.FullName -Raw -Encoding UTF8 -ErrorAction Stop
+
+                    foreach ($pattern in $bootstrap3_4Patterns) {
+                        if ($fileContent -match $pattern) {
+                             $issues.Add([PSCustomObject]@{ FilePath = $relativePath; Issue = "Found potential BS3/BS4 pattern matching regex: '$pattern'"; Severity = "Warning" })
+                             $fileHadIssue = $true; Write-Verbose "[Validate]   Found BS3/4 pattern '$pattern' in $relativePath"
+                        }
+                    }
+                    # Check for jQuery syntax remains useful
+                    if ($fileContent -match $jQueryIndicatorsRegex) {
+                         $severity = if ($fileObject.Extension -in @('.js', '.jsx', '.tsx', '.vue')) { "Warning" } else { "Info" }
+                         $issues.Add([PSCustomObject]@{ FilePath = $relativePath; Issue = "Found potential jQuery dependency (`$()` or `jQuery()`)"; Severity = $severity })
+                         $fileHadIssue = $true; Write-Verbose "[Validate]   Found jQuery pattern in $relativePath (Severity: $severity)"
+                    }
+
+                    if ($fileHadIssue) { [void]$filesWithIssues.Add($relativePath) }
+
+                } catch { # Inner catch for file processing error
+                    Write-MigrationLog "Error processing file '$($fileObject.FullName)' during validation: $($_.Exception.Message)" "Error"
+                    $issues.Add([PSCustomObject]@{ FilePath = $relativePath; Issue = "Error reading or processing file: $($_.Exception.Message)"; Severity = "Error" })
+                    [void]$filesWithIssues.Add($relativePath)
+                } # End Inner catch
+            } # End ForEach-Object over files
+        } # End foreach $ext
+
+        # --- Reporting ---
+        $timestampSuffix = Get-Date -Format 'yyyyMMdd_HHmmss'
+        $csvReportPath = Join-Path $logDir "migration_validation_issues_$timestampSuffix.csv"
+        $htmlReportPath = Join-Path $logDir "migration_validation_report_$timestampSuffix.html"
+
+        if ($issues.Count -gt 0) {
+            $sortedIssues = $issues | Sort-Object @{Expression='Severity'; Descending=$true}, FilePath, Issue
+            try {
+                $sortedIssues | Export-Csv -Path $csvReportPath -NoTypeInformation -Encoding UTF8 -ErrorAction Stop
+                Write-MigrationLog "Found $($issues.Count) potential issues/errors in $($filesWithIssues.Count) files. See CSV report: '$csvReportPath'" "Warning"
+            } catch { Write-MigrationLog "Error writing CSV report to '$csvReportPath': $($_.Exception.Message)" "Error" }
+        } else {
+            Write-MigrationLog "Validation scan completed. No potential Bootstrap 3/4 remnants or jQuery patterns found in $filesScanned scanned files." "Success"
+        }
+
+        # Generate HTML Report
+        $htmlHead = @"
+<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><title>Bootstrap Migration Validation Report</title>
+<style>body{font-family:Segoe UI,Tahoma,sans-serif;margin:20px;font-size:14px}h1,h2{border-bottom:1px solid #ccc;padding-bottom:5px;color:#0d6efd}table{border-collapse:collapse;width:100%;margin-top:15px;box-shadow:0 1px 3px rgba(0,0,0,.1)}th,td{border:1px solid #ddd;padding:8px 10px;text-align:left;vertical-align:top}th{background-color:#e9ecef;font-weight:600}tr:nth-child(even){background-color:#f8f9fa}.severity-Error{background-color:#f8d7da;color:#721c24}.severity-Warning{background-color:#fff3cd;color:#856404}.severity-Info{background-color:#d1ecf1;color:#0c5460}.summary,.status-success,.status-warning,.next-steps{margin:20px 0;padding:15px;border:1px solid #dee2e6;border-radius:5px;background-color:#f8f9fa}.status-success{background-color:#d1e7dd;color:#0f5132;border-color:#badbcc}.status-warning{background-color:#fff3cd;color:#856404;border-color:#ffecb5}.next-steps{background-color:#cfe2ff;border-color:#b6d4fe}.next-steps ol{margin-top:10px;padding-left:20px}td:nth-child(1){word-break:break-all}td:nth-child(2){white-space:pre-wrap}</style>
+</head><body><h1>Bootstrap 3/4 to 5 Migration Validation Report</h1>
+"@
+        $htmlSummary = @"
+<div class='summary'><h2>Summary</h2><p>Scan executed: $(Get-Date)</p><p>Target Directory: $([System.Security.SecurityElement]::Escape($TargetDirectory))</p><p>File Extensions Scanned: $($extensions -join ', ')</p><p>Total Files Scanned (excluding skipped): $filesScanned</p><p>Files with Potential Issues/Errors: $($filesWithIssues.Count)</p><p>Total Potential Issues/Errors Found (including Info): $($issues.Count)</p></div>
+"@
+        $htmlBody = ""
+        if ($issues.Count -gt 0) {
+            $htmlBody += @"
+<div class='status-warning'><strong>Potential issues found.</strong> Review the table below and the detailed CSV report. Manual verification is required.</div><h2>Potential Issues Details</h2>
+<table><thead><tr><th>File Path</th><th>Issue Details</th><th>Severity</th></tr></thead><tbody>
+"@
+            $sortedIssues = $issues | Sort-Object @{Expression='Severity'; Descending=$true}, FilePath, Issue
+            foreach ($issue in $sortedIssues) {
+                $safeFilePath = [System.Security.SecurityElement]::Escape($issue.FilePath)
+                $safeIssue = [System.Security.SecurityElement]::Escape($issue.Issue)
+                $severityClass = "severity-$($issue.Severity)"
+                $htmlBody += "<tr class='$severityClass'><td>$safeFilePath</td><td>$safeIssue</td><td>$($issue.Severity)</td></tr>`n"
+            }
+            $htmlBody += "</tbody></table>"
+        } else {
+             $htmlBody += "<div class='status-success'><strong>No issues found!</strong> Based on the defined patterns, the scanned files appear free of common Bootstrap 3/4 remnants and jQuery calls (`$()` or `jQuery()`). Further manual testing is still recommended.</div>"
+        }
+        $htmlFooter = @"
+<div class='next-steps'><h2>Next Steps</h2><ol><li><strong>Review Issues:</strong> If issues were found, manually inspect the code in the identified files (CSV: '$([System.Security.SecurityElement]::Escape($csvReportPath))'). Prioritize 'Error' and 'Warning' severities. Not all findings may require changes.</li><li><strong>Test Functionality:</strong> Thoroughly test your application's UI and JS interactions.</li><li><strong>Check Custom Code:</strong> Review custom CSS/JS dependent on BS3/BS4.</li><li><strong>Verify Dependencies:</strong> If jQuery syntax (`$()`) was flagged, assess if complete removal is feasible or if shims/updates are needed.</li><li><strong>Consult BS5 Docs:</strong> Refer to official Bootstrap 5 migration guides.</li></ol></div></body></html>
+"@
+        $htmlReport = $htmlHead + $htmlSummary + $htmlBody + $htmlFooter
+        try {
+            Set-Content -Path $htmlReportPath -Value $htmlReport -Encoding UTF8 -ErrorAction Stop
+            Write-MigrationLog "HTML Validation report generated: '$htmlReportPath'" "Success"
+        } catch { Write-MigrationLog "Error writing HTML report to '$htmlReportPath': $($_.Exception.Message)" "Error" }
+
+    } # End Outer try
+    catch { # Catch for unexpected errors during the entire validation phase
+        Write-MigrationLog "An unexpected critical error occurred during the validation phase: $($_.Exception.Message)" "Error"
+        Write-MigrationLog "Validation StackTrace: $($_.ScriptStackTrace)" "Error"
+    } # End Outer catch
+
+} # End function Test-MigrationResults
+
+
+# --- Main Script Logic ---
+
+Write-MigrationLog "Starting Bootstrap 3/4 to 5 Migration Script..." "Info"
+Write-MigrationLog "Phase selected: '$Phase'" "Info"
+Write-MigrationLog "Target Directory: '$TargetDirectory'" "Info"
+if ($DryRun) { Write-MigrationLog "Dry Run Mode: ENABLED (No files will be modified)" "Warning" }
+
+if (-not (Test-Path -Path $TargetDirectory -PathType Container)) {
+    Write-MigrationLog "Error: Target directory '$TargetDirectory' not found or is not a directory. Script aborted." "Error"
+    Stop-Transcript; Exit 1
+}
+
+Write-MigrationLog "Executing Phase: $Phase" "Info"
+$phaseSuccess = $true # Assume success unless a phase explicitly fails
+
+# CORRECTED: Removed "jQuery" case
+switch ($Phase) {
+    "Analyze"    { Write-MigrationLog "--- Phase: Analyze ---" "Info"; Test-MigrationResults }
+    "Backup"     { Write-MigrationLog "--- Phase: Backup ---" "Info"; if (-not (Backup-ProjectFiles)) { Write-MigrationLog "Backup phase failed." "Error"; $phaseSuccess = $false } else { Write-MigrationLog "Backup phase completed successfully." "Success" } }
+    "Classes"    { Write-MigrationLog "--- Phase: Update Class Names ---" "Info"; Write-MigrationLog "*** Ensure backup exists! ***" "Warning"; Update-ClassNames }
+    "Components" { Write-MigrationLog "--- Phase: Update Components & Attributes ---" "Info"; Write-MigrationLog "*** Ensure backup exists! ***" "Warning"; Update-Components }
+    # "jQuery" phase removed
+    "Validate"   { Write-MigrationLog "--- Phase: Validate ---" "Info"; Test-MigrationResults }
+    default {
+        Write-MigrationLog "Invalid phase specified: '$Phase'" "Error"
+        # CORRECTED: Updated available phases message
+        Write-MigrationLog "Available phases: Analyze, Backup, Classes, Components, Validate" "Info"
+        $phaseSuccess = $false
+    }
+}
+
+if ($phaseSuccess) {
+    Write-MigrationLog "Script phase '$Phase' completed." "Success"
+} else {
+     Write-MigrationLog "Script phase '$Phase' reported errors or warnings." "Warning"
+}
+
+Stop-Transcript
+Write-Host "Script finished. Transcript log saved to: $logFile" -ForegroundColor Green
+
+if ($phaseSuccess) { Exit 0 } else { Exit 1 }
