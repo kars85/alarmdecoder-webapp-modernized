@@ -53,16 +53,19 @@ def _get_primary_ip_socket():
                  return ip_address
             else:
                  ip_address = None
-                 if s: s.close()
+                 if s:
+                     s.close()
                  s = None
         except socket.error as e:
             logger.debug(f"Socket connection to {target_ip}:{target_port} failed: {e}")
-            if s: s.close()
+            if s:
+                s.close()
             s = None
             continue
         except Exception as e:
              logger.warning(f"Unexpected error getting IP via socket with target {target_ip}:{target_port}: {e}")
-             if s: s.close()
+             if s:
+                 s.close()
              s = None
              continue
         finally:
@@ -351,7 +354,8 @@ class DiscoveryServer(threading.Thread):
         # USN structure: uuid:device-UUID[::upnp-service-type]
         usn_base = f'uuid:{self._device_uuid}'
         usn = usn_base
-        if st != 'ssdp:all' and st != 'upnp:rootdevice':
+        if st != 'ssdp:
+            all' and st != 'upnp:rootdevice':
              # If ST is specific, append it to USN
              usn += f'::{st}'
         elif st == 'upnp:rootdevice':
@@ -432,9 +436,11 @@ class DiscoveryServer(threading.Thread):
         st = request.headers.get('ST', '').strip()
         man = request.headers.get('MAN', '').strip()
 
-        if request.command == 'M-SEARCH' and request.path == '*' and man == '"ssdp:discover"':
+        if request.command == 'M-SEARCH' and request.path == '*' and man == '"ssdp:
+            discover"':
             # Check if the Search Target (ST) matches what we provide
-            if st == 'ssdp:all' or \
+            if st == 'ssdp:
+                all' or \
                st == 'upnp:rootdevice' or \
                st == f'uuid:{self._device_uuid}' or \
                st == 'urn:schemas-upnp-org:device:AlarmDecoder:1':

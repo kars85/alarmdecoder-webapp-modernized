@@ -41,7 +41,7 @@ def certificate_context_processor():
 @login_required
 def index():
     use_ssl = Setting.get_by_name("use_ssl", default=False).value
-    if use_ssl == False:
+    if not use_ssl:
         abort(404)
 
     certificates = Certificate.query.all()
@@ -60,7 +60,7 @@ def index():
 @login_required
 def generate():
     use_ssl = Setting.get_by_name("use_ssl", default=False).value
-    if use_ssl == False:
+    if not use_ssl:
         abort(404)
 
     form = GenerateCertificateForm(next=request.args.get("next"))
@@ -95,7 +95,7 @@ def generate():
 @login_required
 def view(certificate_id):
     use_ssl = Setting.get_by_name("use_ssl", default=False).value
-    if use_ssl == False:
+    if not use_ssl:
         abort(404)
 
     cert = Certificate.get_by_id(certificate_id)
@@ -124,7 +124,7 @@ def download(certificate_id, download_type):
         abort(404)
 
     use_ssl = Setting.get_by_name("use_ssl", default=False).value
-    if use_ssl == False:
+    if not use_ssl:
         abort(404)
 
     cert = Certificate.get_by_id(certificate_id)
@@ -152,7 +152,7 @@ def download(certificate_id, download_type):
 @login_required
 def revoke(certificate_id):
     use_ssl = Setting.get_by_name("use_ssl", default=False).value
-    if use_ssl == False:
+    if not use_ssl:
         abort(404)
 
     cert = Certificate.get_by_id(certificate_id)
@@ -178,7 +178,7 @@ def revoke(certificate_id):
 @admin_required
 def generateCA():
     use_ssl = Setting.get_by_name("use_ssl", default=False).value
-    if use_ssl == False:
+    if not use_ssl:
         abort(404)
 
     ca_cert = Certificate(
@@ -229,7 +229,7 @@ def generateCA():
 @admin_required
 def revokeCA():
     use_ssl = Setting.get_by_name("use_ssl", default=False).value
-    if use_ssl == False:
+    if not use_ssl:
         abort(404)
 
     ca = Certificate.query.filter_by(type=CA).first()

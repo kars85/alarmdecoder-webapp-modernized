@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
-import datetime
-import signal
-import sys
-import logging
+
+# --- Gevent ---
+from gevent import monkey
+monkey.patch_all()
 
 import click
 from flask.cli import with_appcontext
 
-from alarmdecoder.util import NoDeviceError
-from ad2web import create_app, init_app
-from ad2web.decoder import Decoder
+from ad2web.app import create_app, init_app
 from ad2web.extensions import db
 from ad2web.notifications.models import NotificationMessage
 from ad2web.notifications.constants import DEFAULT_EVENT_MESSAGES

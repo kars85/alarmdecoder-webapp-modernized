@@ -16,7 +16,7 @@ from ..extensions import db
 from ..settings.models import Setting
 from alarmdecoder.panels import ADEMCO, DSC
 from alarmdecoder import AlarmDecoder
-from .forms import KeypadButtonForm
+from ad2web.keypad.forms import KeypadButtonForm
 from .models import KeypadButton
 from .forms import SpecialButtonFormAdemco, SpecialButtonFormDSC
 from .constants import (
@@ -34,7 +34,8 @@ from .constants import (
 )
 
 keypad = Blueprint("keypad", __name__, url_prefix="/keypad")
-
+api = Blueprint('api', __name__, url_prefix='/api/v1')
+api_settings = Blueprint('api_settings', __name__, url_prefix='/api')
 
 @keypad.route("/")
 @login_required

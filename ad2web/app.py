@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
 # In ad2web/app.py
-# --- Gevent ---
-from gevent import monkey
-monkey.patch_all()
+
 
 # --- Standard Imports ---
 import os
 import signal
 import logging
-
+import datetime
 
 
 # --- Flask and Extensions ---
@@ -391,6 +389,6 @@ def load_user(user_id):
 # Example: Add to end of ad2web/app.py for simple dev run
 if __name__ == '__main__':
     # Important: create_app should now only return app
-    app = create_app()
+    app, socketio = create_app()
     # Use socketio.run to start the gevent server
     socketio.run(app, host='0.0.0.0', port=5000, debug=app.debug)

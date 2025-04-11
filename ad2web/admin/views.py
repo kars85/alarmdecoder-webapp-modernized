@@ -89,12 +89,9 @@ def user(user_id):
 @admin_required
 def remove(user_id):
     user = User.query.filter_by(id=user_id).first_or_404()
-    users = User.query.all()
     if user_id != 1:
         db.session.delete(user)
         db.session.commit()
         flash("User deleted.", "success")
-
-    use_ssl = Setting.get_by_name("use_ssl", default=False).value
 
     return redirect(url_for("admin.users"))

@@ -17,14 +17,14 @@ def admin_required(f):
     return decorated_function
 
 def admin_or_first_run_required(f):
-	@wraps(f)
-	def decorated_function(*args, **kwargs):
-		if user_is_anonymous(current_user) or not current_user.is_admin():
-			if Setting.get_by_name('setup_complete', default=False) == True:
-				abort(403)
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if user_is_anonymous(current_user) or not current_user.is_admin():
+            if Setting.get_by_name('setup_complete', default=False) == True:
+                abort(403)
 
-		return f(*args, **kwargs)
-	return decorated_function
+        return f(*args, **kwargs)
+    return decorated_function
 
 def crossdomain(origin=None, methods=None, headers=None,
                 max_age=21600, attach_to_all=True,

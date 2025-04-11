@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from urllib.parse import quote as url_quote
 
 from ad2web.user import User
 from ad2web.extensions import db, mail

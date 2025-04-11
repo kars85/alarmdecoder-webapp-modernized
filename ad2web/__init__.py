@@ -1,12 +1,8 @@
-import os
-from flask import Flask
 # Make sure ALL constants used below are imported or defined
 # It looks like UPLOAD_FOLDER and OPENID_FS_STORE_PATH might be missing?
 # Assuming they are also in utils for this example:
-from ad2web.utils import make_dir, INSTANCE_FOLDER_PATH, LOG_FOLDER
 from ad2web.extensions import db, login_manager, babel # mail needs to be added here if defined in extensions
-from ad2web.services.alarm_service import setup_alarmdecoder
-from ad2web.blueprints.main import main as main_blueprint
+
 # Import the User model
 from ad2web.user.models import User # Adjust path if needed
 

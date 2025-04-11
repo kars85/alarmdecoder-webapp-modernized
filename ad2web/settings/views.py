@@ -9,12 +9,14 @@ import json
 import re
 import socket
 import random
+import shutil
+import subprocess
 try:
     import netifaces
     hasnetifaces = 1
 except ImportError:
     hasnetifaces = 0
-import sh
+
 #import compiler
 import sys
 import importlib
@@ -47,14 +49,10 @@ from .forms import ProfileForm, PasswordForm, ImportSettingsForm, HostSettingsFo
 from .constants import HOSTS_FILE, HOSTNAME_FILE, NETWORK_FILE, KNOWN_MODULES, DAILY, IP_CHECK_SERVER_URL
 #from ..certificate import Certificate, CA, SERVER
 from ..upnp import UPNP
-from sh import hostname
 from ..exporter import Exporter
 
-try:
-    from sh import service
-    hasservice = True
-except ImportError:
-    hasservice = False
+ #Check if the 'service' command is available on the system
+hasservice = shutil.which("service") is not None
 
 #import urllib2
 import ssl
@@ -198,17 +196,16 @@ def hostname():
         else:
             flash('Unable to write HOSTNAME FILE, check permissions', 'error')
 
-        with sh.sudo:
-            try:
-                sh.hostname("-b", new_hostname)
-            except sh.ErrorReturnCode_1:
-                flash('Error setting hostname with the hostname command.', 'error')
+        try:
+            subprocess.run(["hostname", "-b", new_hostname], check=True)
+        except subprocess.CalledProcessError:
+            flash('Error setting hostname with the hostname command.', 'error')
 
-            if hasservice:
-                try:
-                    sh.service("avahi-daemon", "restart")
-                except sh.ErrorReturnCode_1:
-                    flash('Error restarting the avahi-daemon', 'error')
+        if hasservice:
+            try:
+                subprocess.run(["service", "avahi-daemon", "restart"], check=True)
+            except subprocess.CalledProcessError:
+                flash('Error restarting the avahi-daemon', 'error')
 
         return redirect(url_for('settings.host'))
 
@@ -239,15 +236,12 @@ def get_ethernet_info(device):
 @login_required
 @admin_required
 def system_reboot():
-    with sh.sudo:
-        try:
-            sh.sync()
-            sh.reboot()
-        except sh.ErrorReturnCode_1:
-            flash('Unable to reboot device!', 'error')
-            return redirect(url_for('settings.host'))
-        except sh.ErrorReturnCode_143:
-            pass
+    try:
+        subprocess.run(["sync"], check=True)
+        subprocess.run(["reboot"], check=True)
+    except subprocess.CalledProcessError:
+        flash('Unable to reboot device!', 'error')
+        return redirect(url_for('settings.host'))
 
     flash('Rebooting device!', 'success')
     return redirect(url_for('settings.host'))
@@ -256,15 +250,16 @@ def system_reboot():
 @login_required
 @admin_required
 def system_shutdown():
-    with sh.sudo:
-        try:
-            sh.sync()
-            sh.halt()
-        except sh.ErrorReturnCode_1:
+    try:
+        subprocess.run(["sync"], check=True)
+        subprocess.run(["halt"], check=True)
+    except subprocess.CalledProcessError as e:
+        if e.returncode == 143:
+            # 143 = SIGTERM (often normal on shutdown)
+            pass
+        else:
             flash('Unable to shutdown device!', 'error')
             return redirect(url_for('settings.host'))
-        except sh.ErrorReturnCode_143:
-            pass
 
     flash('Shutting device down!', 'success')
     return redirect(url_for('settings.host'))
@@ -393,16 +388,15 @@ def configure_ethernet_device(device):
 
             _write_network_file(device_map)
 #substitute values in the device_map, write the file and restart networking
-        with sh.sudo:
-            try:
-                sh.ifdown(str(device))
-            except sh.ErrorReturnCode_1:
-                flash('Unable to restart networking. Please try manually.', 'error')
-            try:
-                sh.ifup(str(device))
-            except sh.ErrorReturnCode_1:
-                flash('Unable to restart networking.  Please try manually.', 'error')
+        try:
+            subprocess.run(["ifdown", str(device)], check=True)
+        except subprocess.CalledProcessError:
+            flash('Unable to restart networking. Please try manually.', 'error')
 
+        try:
+            subprocess.run(["ifup", str(device)], check=True)
+        except subprocess.CalledProcessError:
+            flash('Unable to restart networking. Please try manually.', 'error')
         form.ethernet_device.data = device
 
     form.ethernet_device.data = device
@@ -554,143 +548,81 @@ def export():
 @settings.route('/git', methods=['GET', 'POST'] )
 @login_required
 @admin_required
-def switch_branch():
+def run_git_command(args, cwd):
+    result = subprocess.run(
+        ["git"] + args,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=True
+    )
+    return result.stdout
 
-    # Helper(s)
+@settings.route('/git', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def switch_branch():
     def strip_ansi(line):
-        # git!! STOP with the human readable stuff! Tried to turn it off via switches.
-        # Maybe it works maybe not but if not lets strip it out :(
         rc = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -/]*[@-~]')
         line = rc.sub('', line)
         rc = re.compile(r'\x1B[=><A-Z]')
         line = rc.sub('', line)
         return line.strip()
 
-    def build_remotes_list(dlist):
-        ## Map reduce remote lines group on origin, first(url), accumulate(types)
-        ##  original
-        ##   origin	https://github.com/nutechsoftware/alarmdecoder.git (fetch)
-        ##   origin	https://github.com/nutechsoftware/alarmdecoder.git (push)
-        ##   testing https://github.com/nutechsoftware/alarmdecoder-webapp.git (fetch)
-        ##   testing https://github.com/nutechsoftware/alarmdecoder-webapp.git (push)
-        ##  result
-        ##   origin https://github.com/nutechsoftware/alarmdecoder-webapp.git (fetch, push)
-        ##   testing https://github.com/nutechsoftware/alarmdecoder-webapp.git (fetch, push)
-        rlist = []
-        temp_remote_dict = {}
-        rtypes = []
-        lastkey = None
-        for i in dlist:
-            # split our line
-            rlsplit = dlist[i].split()
-            # Group on key
-            key = rlsplit[0]
-            if key != lastkey:
-                rtypes = []
-            lastkey = key
+    def build_remotes_list(remote_lines):
+        remote_dict = {}
+        for line in remote_lines:
+            parts = line.strip().split()
+            if len(parts) >= 3:
+                name, url, typ = parts[0], parts[1], parts[2].strip("()")
+                if name not in remote_dict:
+                    remote_dict[name] = {"url": url, "types": set()}
+                remote_dict[name]["types"].add(typ)
 
-            # get the url
-            url = rlsplit[1]
+        result = []
+        for name, info in remote_dict.items():
+            result.append((name, f"{name} - {info['url']} ({', '.join(sorted(info['types']))})"))
+        return result
 
-            # get the type strip ()
-            type = rlsplit[2].strip("()")
-
-            # accumulate types
-            if type not in rtypes:
-                rtypes.append(type)
-
-            # keep replaceing the same key as we find more types. Not fast but it works.
-            rtypes.sort()
-            temp_remote_dict[key] = url + " (" + ", ".join(rtypes) + ")"
-
-        return [(k,"%s - %s" % (k,v)) for k,v in temp_remote_dict.items()]
-
-    # First gather data about the api and webapp git state
-    #
-    current_branch_web = None
-    current_branch_api = None
-    current_remote_web = None
-    current_remote_api = None
-
-    # get our cwd where the alarmdecoder-webapp exists.
     cwd_web = os.getcwd()
-    # we require the alarmdecoder api folder we manage to be next to us in ../
-    cwd_api = os.path.normpath(os.path.join(os.getcwd(), '..'+os.path.sep+'alarmdecoder'))
-
-    # grab the current branch and remote for the api and webapp
-    try:
-        git_web = sh.git.bake(_cwd=cwd_web, c='color.status=false')
-        git_api = sh.git.bake(_cwd=cwd_api, c='color.status=false')
-
-        # Ex. '## dev...origin/dev\nfoo\nbar\n'
-        status_web = str(git_web.status("-sb"))
-        status_web_split = status_web.splitlines()[0].split('...')
-        current_branch_web = status_web_split[0][3:]
-        current_remote_web = status_web_split[1].split("/")[0]
-
-        # Ex. '## dev...origin/dev\nfoo\nbar\n'
-        status_api = str(git_api.status("-sb"))
-        status_api_split = status_api.splitlines()[0].split('...')
-        current_branch_api = status_api_split[0][3:]
-        current_remote_api = status_api_split[1].split("/")[0]
-
-    except sh.ErrorReturnCode_1:
-        flash('Unable to access git command!', 'error')
-        return redirect(url_for('settings.index'))
-
-    #list all local branches
-    try:
-        branches_web = strip_ansi(git_web.branch("-la", "--no-color").stdout).splitlines()
-        branches_api = strip_ansi(git_api.branch("-la", "--no-color").stdout).splitlines()
-    except sh.ErrorReturnCode_1:
-        flash('Error getting list of local branches!', 'error')
-        return redirect(url_for('settings.index'))
-
-    branch_list_web = {}
-    remote_list_web = {}
-    branch_list_api = {}
-    remote_list_api = {}
-    err = None
-    checked_out_web = True
-    checked_out_api = True
-    #store the sh.RunningCommand output in a dictionary, replace all special characters from git bash output
-    for line in branches_web:
-        line = line.replace("*", "")
-        line = line.strip()
-        if ( "HEAD" ) not in line:
-            branch = line.split('/')[-1]
-            branch_list_web[branch] = branch
-
-    for line in branches_api:
-        line = line.replace("*", "")
-        line = line.strip()
-        if ( "HEAD" ) not in line:
-            branch = line.split('/')[-1]
-            branch_list_api[branch] = branch
+    cwd_api = os.path.normpath(os.path.join(cwd_web, "..", "alarmdecoder"))
 
     try:
-        #
-        # origin	https://github.com/nutechsoftware/alarmdecoder.git (fetch)
-        remotes_web = git_web.remote('-v')
-        for line in remotes_web:
-            remote_list_web[line] = line.strip()
-        remotes_api = git_api.remote('-v')
-        for line in remotes_api:
-            remote_list_api[line] = line.strip()
-    except sh.ErrorReturnCode_1:
-        flash('Error getting list of git remotes!', 'error')
-        return redirect(url_for('settings.index'))
+        # Get branch and remote info
+        status_web = run_git_command(["status", "-sb", "-c", "color.status=false"], cwd_web)
+        status_api = run_git_command(["status", "-sb", "-c", "color.status=false"], cwd_api)
 
-    # If the form was submitted then process changes
-    #
+        current_branch_web = status_web.splitlines()[0].split("...")[0][3:]
+        current_remote_web = status_web.splitlines()[0].split("...")[1].split("/")[0]
+
+        current_branch_api = status_api.splitlines()[0].split("...")[0][3:]
+        current_remote_api = status_api.splitlines()[0].split("...")[1].split("/")[0]
+
+        # Get all branches
+        branches_web_raw = run_git_command(["branch", "-la", "--no-color"], cwd_web)
+        branches_api_raw = run_git_command(["branch", "-la", "--no-color"], cwd_api)
+        branches_web = strip_ansi(branches_web_raw).splitlines()
+        branches_api = strip_ansi(branches_api_raw).splitlines()
+
+        branch_list_web = {line.strip().replace("*", "").split("/")[-1]: line.strip() for line in branches_web if "HEAD" not in line}
+        branch_list_api = {line.strip().replace("*", "").split("/")[-1]: line.strip() for line in branches_api if "HEAD" not in line}
+
+        # Get remotes
+        remotes_web_raw = run_git_command(["remote", "-v"], cwd_web).splitlines()
+        remotes_api_raw = run_git_command(["remote", "-v"], cwd_api).splitlines()
+        remote_list_web = build_remotes_list(remotes_web_raw)
+        remote_list_api = build_remotes_list(remotes_api_raw)
+
+    except subprocess.CalledProcessError:
+        flash("Unable to access git command!", "error")
+        return redirect(url_for("settings.index"))
+
+    # Build form
     form = SwitchBranchForm()
-    # Show the current state fill form with live data and set defaults to current values.
-    # add dynamic list of branches and remotes to the SelectField objects in the form.
-    form.branches_web.choices = [(branch_list_web[i], branch_list_web[i]) for i in branch_list_web]
-    form.remotes_web.choices = build_remotes_list(remote_list_web)
-
-    form.branches_api.choices = [(branch_list_api[i], branch_list_api[i]) for i in branch_list_api]
-    form.remotes_api.choices = build_remotes_list(remote_list_api)
+    form.branches_web.choices = [(b, b) for b in branch_list_web]
+    form.branches_api.choices = [(b, b) for b in branch_list_api]
+    form.remotes_web.choices = remote_list_web
+    form.remotes_api.choices = remote_list_api
 
     if form.validate_on_submit():
         branch_web = form.branches_web.data
@@ -698,52 +630,36 @@ def switch_branch():
         branch_api = form.branches_api.data
         remote_api = form.remotes_api.data
 
-        # Attempt to switch branches/remotes if they differ from current
-        if branch_web != current_branch_web or remote_web != current_remote_web:
-            try:
-                git_web.checkout(branch_web)
-            except sh.ErrorReturnCode_1:
-                err = "You may have local changes in '%s' - commit or stash them before you can switch branches." % cwd_web
-                flash('Error switching branches for the AlarmDecoder-webapp! ' + err, 'error')
-                checked_out_web = False
+        try:
+            if branch_web != current_branch_web or remote_web != current_remote_web:
+                subprocess.run(["git", "checkout", branch_web], cwd=cwd_web, check=True)
+                subprocess.run(["git", "pull", remote_web, branch_web], cwd=cwd_web, check=True)
 
-            if checked_out_web:
-                try:
-                    git_web.pull(remote_web, branch_web)
-                except sh.ErrorReturnCode_1:
-                    flash('Error pulling code from remote: ' + remote_web + ' branch: ' + branch_web, 'error')
+            if branch_api != current_branch_api or remote_api != current_remote_api:
+                subprocess.run(["git", "checkout", branch_api], cwd=cwd_api, check=True)
+                subprocess.run(["git", "pull", remote_api, branch_api], cwd=cwd_api, check=True)
 
-        # Attempt to switch branches/remotes if they differ from current
-        if branch_api != current_branch_api or remote_api != current_remote_api:
-            try:
-                git_api.checkout(branch_api)
-            except sh.ErrorReturnCode_1:
-                err = "You may have local changes in '%s' - commit or stash them before you can switch branches." % cwd_api
-                flash('Error switching branches for the AlarmDecoder API! ' + err, 'error')
-                checked_out_api = False
+        except subprocess.CalledProcessError:
+            flash("Error switching branches. Make sure you have no local changes, or stash/commit them.", "error")
+            return redirect(url_for("settings.switch_branch"))
 
-            if checked_out_api:
-                try:
-                    git_api.pull(remote_api, branch_api)
-                except sh.ErrorReturnCode_1:
-                    flash('Error pulling code from remote: ' + remote_api + ' branch: ' + branch_api, 'error')
+        return redirect(url_for("settings.switch_branch"))
 
-        # Send back to the page where it will reload the current state
-        # and show the results of the changes.
-        return redirect(url_for('settings.switch_branch'))
-
+    # Set form defaults
     form.branches_web.default = current_branch_web
     form.branches_api.default = current_branch_api
     form.remotes_web.default = current_remote_web
     form.remotes_api.default = current_remote_api
     form.process()
 
-    return render_template('settings/git.html',
-                            form=form,
-                            current_branch_web=current_branch_web,
-                            current_branch_api=current_branch_api,
-                            current_remote_web=current_remote_web,
-                            current_remote_api=current_remote_api)
+    return render_template(
+        "settings/git.html",
+        form=form,
+        current_branch_web=current_branch_web,
+        current_branch_api=current_branch_api,
+        current_remote_web=current_remote_web,
+        current_remote_api=current_remote_api,
+    )
 
 @settings.route('/import', methods=['GET', 'POST'], endpoint='import')
 @login_required
@@ -891,7 +807,7 @@ def get_system_imports():
             try:
                 importlib.import_module( val )
                 found = 1
-            except:
+except Exception:
                 found = 0
         else:
             found = 0
@@ -1168,22 +1084,3 @@ class ImportVisitor(object):
         def finalize(self):
             self.accept_imports()
             return self.modules
-
-
-#class ImportWalker(ASTVisitor):
-#    def __init__(self, visitor):
-#        ASTVisitor.__init__(self)
-#        self._visitor = visitor
-
-#    def default( self, node, *args):
-#        self._visitor.default(node)
-#        ASTVisitor.default(self, node, *args)
-
-
-#def parse_python_source(fn):
-#    contents = open(fn, 'rU').read()
-#    ast = compiler.parse(contents)
-#    vis = ImportVisitor()
-
-#    compiler.walk(ast, vis, ImportWalker(vis))
-#    return vis.finalize()

@@ -180,7 +180,7 @@ class WebappUpdater(object):
 
         try:
             version = sh.git('describe', tags=True, always=True, long=True)
-        except:
+except Exception:
             pass
 
         return version.strip()

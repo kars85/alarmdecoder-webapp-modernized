@@ -21,9 +21,6 @@ from flask_socketio import Namespace, emit # emit is useful here
 # Import the single socketio instance from extensions
 from .extensions import db, socketio # ADDED socketio
 
-# --- Debugger (Consider Removing/Replacing) ---
-# from .socketioflaskdebug.debugger import SocketIODebugger # Keep commented unless verified compatible
-
 # --- Other Necessary Imports ---
 import jsonpickle
 from OpenSSL import SSL
@@ -136,12 +133,18 @@ class Decoder(object):
 
     def start(self):
         """Starts the internal threads."""
-        if self._event_thread and not self._event_thread.is_alive(): self._event_thread.start()
-        if self._version_thread and not self._version_thread.is_alive(): self._version_thread.start()
-        if self._camera_thread and not self._camera_thread.is_alive(): self._camera_thread.start()
-        if self._discovery_thread and not self._discovery_thread.is_alive(): self._discovery_thread.start()
-        if self._notification_thread and not self._notification_thread.is_alive(): self._notification_thread.start()
-        if self._exporter_thread and not self._exporter_thread.is_alive(): self._exporter_thread.start()
+        if self._event_thread and not self._event_thread.is_alive():
+            self._event_thread.start()
+        if self._version_thread and not self._version_thread.is_alive():
+            self._version_thread.start()
+        if self._camera_thread and not self._camera_thread.is_alive():
+            self._camera_thread.start()
+        if self._discovery_thread and not self._discovery_thread.is_alive():
+            self._discovery_thread.start()
+        if self._notification_thread and not self._notification_thread.is_alive():
+            self._notification_thread.start()
+        if self._exporter_thread and not self._exporter_thread.is_alive():
+            self._exporter_thread.start()
         if has_upnp and self._upnp_thread and not self._upnp_thread.is_alive():
             self._upnp_thread.start()
 
@@ -156,13 +159,20 @@ class Decoder(object):
         self.logger.info('Stopping service components...')
 
         # Stop threads first
-        if self._event_thread: self._event_thread.stop()
-        if self._version_thread: self._version_thread.stop()
-        if self._camera_thread: self._camera_thread.stop()
-        if self._discovery_thread: self._discovery_thread.stop()
-        if self._notification_thread: self._notification_thread.stop()
-        if self._exporter_thread: self._exporter_thread.stop()
-        if has_upnp and self._upnp_thread: self._upnp_thread.stop()
+        if self._event_thread:
+            self._event_thread.stop()
+        if self._version_thread:
+            self._version_thread.stop()
+        if self._camera_thread:
+            self._camera_thread.stop()
+        if self._discovery_thread:
+            self._discovery_thread.stop()
+        if self._notification_thread:
+            self._notification_thread.stop()
+        if self._exporter_thread:
+            self._exporter_thread.stop()
+        if has_upnp and self._upnp_thread:
+            self._upnp_thread.stop()
 
         # Close the device connection
         self.close()
@@ -297,7 +307,8 @@ class Decoder(object):
                 devicetype = SerialDevice
                 interface = Setting.get_by_name('device_path').value
                 baud_val = Setting.get_by_name('device_baudrate').value
-                if baud_val: self._device_baudrate = int(baud_val)
+                if baud_val:
+                    self._device_baudrate = int(baud_val)
                 if not interface:
                      self.logger.error("Cannot open local device: Path not set.")
                      return
@@ -387,7 +398,8 @@ class Decoder(object):
 
     def bind_events(self):
         """Binds the internal event handlers to the AlarmDecoder instance."""
-        if not self.device: return
+        if not self.device:
+            return
 
         self.logger.debug("Binding AlarmDecoder events.")
         # Use lambdas to ensure 'self' context is passed correctly
@@ -420,7 +432,8 @@ class Decoder(object):
 
     def remove_events(self):
         """Clears internal event handlers from the AlarmDecoder instance."""
-        if not self.device: return
+        if not self.device:
+            return
 
         self.logger.debug("Removing AlarmDecoder event bindings.")
         try:
@@ -485,7 +498,8 @@ class Decoder(object):
     def _on_message(self, ftype, sender, **kwargs):
         """Internal handler for raw messages from the device."""
         message = kwargs.get('message', None)
-        if message is None: return # Ignore if no message content
+        if message is None:
+            return # Ignore if no message content
 
         self.last_message_received = str(message) # Store raw message
         self._last_message_timestamp = time.time() # Update timestamp
@@ -1122,9 +1136,12 @@ class DecoderNamespace(Namespace):
                  deduplicate = Setting.get_by_name('deduplicate').value
 
                  # Basic validation/defaults
-                 if not panel_mode: panel_mode = 'ADEMCO'
-                 if not keypad_address: keypad_address = 18
-                 if not address_mask: address_mask = 'FFFFFFFF'
+                 if not panel_mode:
+                     panel_mode = 'ADEMCO'
+                 if not keypad_address:
+                     keypad_address = 18
+                 if not address_mask:
+                     address_mask = 'FFFFFFFF'
 
                  zx_str = (zone_expanders or '').split(',')
                  rx_str = (relay_expanders or '').split(',')
@@ -1170,7 +1187,8 @@ class DecoderNamespace(Namespace):
         def on_sending_received(device, status, message):
              nonlocal results, details
              logger.debug(f"Test Send: on_sending_received triggered with status {status}.")
-             if status == True: # Note: AlarmDecoder library might just pass True/False
+             if status == True:
+                 # Note: AlarmDecoder library might just pass True/False
                   results, details = 'PASS', ''
              else:
                   results, details = 'FAIL', 'Device reported send failure. Check wiring/address.'

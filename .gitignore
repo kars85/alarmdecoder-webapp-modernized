@@ -9,21 +9,15 @@
 *.tox
 *~
 *.mo
-
-*.db
 *.sqlite
-
 .vscode/
-
 dist
 build
-
 instance
 production.py
 logs
 uploads
 openid
-
 env
 temp
 webapp.sublime-*
@@ -34,3 +28,19 @@ bootstrap3_audit/
 bootstrap3_backup/
 bootstrap3_migration_logs/
 *_old
+
+# PyCharm project files to share
+!.idea/
+!.idea/modules.xml
+!.idea/*.iml
+!.idea/runConfigurations/
+!.idea/codeStyles/
+
+# PyCharm files to ignore
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries/
+.idea/shelf/
+
+# Environment files
+.env

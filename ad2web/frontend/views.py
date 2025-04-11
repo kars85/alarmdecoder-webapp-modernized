@@ -2,6 +2,9 @@
 
 from markupsafe import Markup
 
+from flask import Blueprint
+
+frontend = Blueprint('frontend', __name__)
 
 from flask_wtf import FlaskForm as Form
 from wtforms import (ValidationError, HiddenField, BooleanField, StringField,

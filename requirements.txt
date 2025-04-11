@@ -17,12 +17,14 @@ coverage
 pytest-cov
 python-dotenv
 python-dateutil
-OpenSSL
-netifaces
+pyOpenSSL
+netifaces2
 chump
 gntp
-sleekxmpp
+Slixmpp
 twilio
 opencv-python
 numpy
 requests
+gevent
+sh

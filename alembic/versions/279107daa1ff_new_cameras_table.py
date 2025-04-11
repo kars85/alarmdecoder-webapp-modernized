@@ -28,7 +28,7 @@ def upgrade():
     sa.Column('get_jpg_url', sa.VARCHAR(length=255), nullable=True),
     sa.Column('user_id', sa.INTEGER(), nullable=False),
     sa.PrimaryKeyConstraint('id')
-    )   
+    )
 
 def downgrade():
     op.drop_table('cameras')
