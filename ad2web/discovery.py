@@ -19,6 +19,7 @@ try:
     import netifaces
     has_netifaces = True
 except ImportError:
+    import netifaces
     has_netifaces = False
 
 from select import select
@@ -354,8 +355,7 @@ class DiscoveryServer(threading.Thread):
         # USN structure: uuid:device-UUID[::upnp-service-type]
         usn_base = f'uuid:{self._device_uuid}'
         usn = usn_base
-        if st != 'ssdp:
-            all' and st != 'upnp:rootdevice':
+        if st != 'ssdp: all' and st != 'upnp:rootdevice':
              # If ST is specific, append it to USN
              usn += f'::{st}'
         elif st == 'upnp:rootdevice':
@@ -436,11 +436,9 @@ class DiscoveryServer(threading.Thread):
         st = request.headers.get('ST', '').strip()
         man = request.headers.get('MAN', '').strip()
 
-        if request.command == 'M-SEARCH' and request.path == '*' and man == '"ssdp:
-            discover"':
+        if request.command == 'M-SEARCH' and request.path == '*' and man == '"ssdp: discover"':
             # Check if the Search Target (ST) matches what we provide
-            if st == 'ssdp:
-                all' or \
+            if st == 'ssdp: all' or \
                st == 'upnp:rootdevice' or \
                st == f'uuid:{self._device_uuid}' or \
                st == 'urn:schemas-upnp-org:device:AlarmDecoder:1':

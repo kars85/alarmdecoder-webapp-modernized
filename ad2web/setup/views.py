@@ -436,7 +436,7 @@ def device():
             try:
                 current_app.decoder.close()
                 current_app.decoder.open()
-except Exception:
+            except Exception:
                 pass
 
             panel_mode = Setting.get_by_name('panel_mode').value
@@ -482,8 +482,8 @@ except Exception:
             relay_expanders = Setting.get_by_name('emulate_relay_expanders')
             deduplicate = Setting.get_by_name('deduplicate')
 
-            zx = [True if str(x) in form.zone_expanders.data else False for x in xrange(1, 6)]
-            rx = [True if str(x) in form.relay_expanders.data else False for x in xrange(1, 5)]
+            zx = [True if str(x) in form.zone_expanders.data else False for x in range(1, 6)]
+            rx = [True if str(x) in form.relay_expanders.data else False for x in range(1, 5)]
 
             panel_mode.value = form.panel_mode.data
             keypad_address.value = form.keypad_address.data

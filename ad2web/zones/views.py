@@ -126,5 +126,5 @@ def delete_all_zones():
     try:
         db.session.query(Zone).delete()
         db.session.commit()
-except Exception:
+    except Exception:
         db.session.rollback()

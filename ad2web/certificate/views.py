@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 from flask import (
     Blueprint,
     render_template,
@@ -11,7 +10,6 @@ from flask import (
     url_for,
 )
 from flask_login import login_required, current_user
-
 from ..extensions import db
 from ..decorators import admin_required
 from .constants import (
@@ -233,8 +231,8 @@ def revokeCA():
         abort(404)
 
     ca = Certificate.query.filter_by(type=CA).first()
-    certs = Certificate.query.filter_by(ca_id=ca.id).delete()
-    ca = Certificate.query.filter_by(type=CA).delete()
+    Certificate.query.filter_by(ca_id=ca.id).delete()
+    Certificate.query.filter_by(type=CA).delete()
     db.session.commit()
 
     return redirect(url_for("certificate.index"))

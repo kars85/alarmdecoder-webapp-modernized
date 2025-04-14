@@ -31,7 +31,7 @@ from .updater.views import updater
 from .user import user
 from .settings import settings
 from .frontend import frontend
-from .api import api, api_settings
+import api, api_settings
 from .admin import admin
 from .certificate import certificate
 from .log import log

@@ -8,7 +8,6 @@ import threading
 from email.mime.text import MIMEText
 from email.utils import formatdate
 from urllib.parse import urlparse
-
 import json
 import re
 import ssl
@@ -22,7 +21,6 @@ from alarmdecoder.zonetracking import Zone as ADZone
 
 try:
     from concurrent.futures import ThreadPoolExecutor
-    from concurrent.futures import as_completed
     have_threadpoolexecutor = True
 except ImportError:
     have_threadpoolexecutor = False
@@ -32,9 +30,6 @@ try:
     have_chump = True
 except ImportError:
     have_chump = False
-
-try:
-    import twilio
 
     # Old API ~5.6.0
     try:
@@ -49,38 +44,23 @@ try:
             have_twilio = True
         except ImportError:
             have_twilio = False
-
-except ImportError:
-    have_twilio = False
-
 from xml.etree.ElementTree import Element
 from xml.etree.ElementTree import SubElement
 from xml.etree.ElementTree import Comment
 from xml.etree.ElementTree import tostring
 import ast
-
-#https connection support - used for prowl, Matrix, custom post notifiation, etc.
-try:
-    from http.client import HTTPSConnection
-except ImportError:
-    from httplib import HTTPSConnection
-
-
+#https connection support - used for prowl, Matrix, custom post notification, etc.
+from http.client import HTTPSConnection
 #normal http connection support (future POST to custom url)
-try:
-    from http.client import HTTPConnection
-except ImportError:
-    from httplib import HTTPConnection
+from http.client import HTTPConnection
+from urllib.parse import urlencode, quote
 
-try:
-    from urllib.parse import urlencode, quote
-except ImportError:
-    from urllib import urlencode, quote
 
 try:
     import gntp.notifier
     have_gntp = True
 except ImportError:
+    import gntp.notifier
     have_gntp = False
 
 from .constants import (EMAIL, DEFAULT_EVENT_MESSAGES, PUSHOVER, TWILIO, PROWL, PROWL_URL, PROWL_PATH, PROWL_EVENT, PROWL_METHOD,
@@ -111,7 +91,7 @@ def raise_with_stack(func):
         except Exception as e:
             tb = traceback.format_exc(e).splitlines()
             # Grab error and line number
-            raise StandardError("%s %s" % (repr(e), tb[3].split(",")[1].strip()))
+            raise Exception("%s %s" % (repr(e), tb[3].split(",")[1].strip()))
 
     return wrapped
 
@@ -133,7 +113,11 @@ def threaded(func):
 
         # If we have it use it.
         if have_threadpoolexecutor:
-            notifier = current_app.decoder._notifier_system
+            decoder = getattr(current_app, "decoder", None)
+            if not decoder:
+                return func(*args, **kwargs)  # Fallback to sync if no decoder available
+
+            notifier = decoder._notifier_system
 
             # pass in current app as var. Better way?
             myapp = current_app._get_current_object()
@@ -153,7 +137,7 @@ def threaded(func):
     return wrapper
 
 
-class NotificationSystem(object):
+class NotificationSystem:
     def __init__(self):
         self._notifiers = {}
         self._messages = DEFAULT_EVENT_MESSAGES
@@ -161,254 +145,181 @@ class NotificationSystem(object):
         self._tpool = None
         self._lock = threading.Lock()
         self._futures = []
+        self._subscribers = {}
         self._init_notifiers()
 
-        '''
-        subscribers to UPNPPushNotification
-        '''
-        self._subscribers = {}
-
-        '''
-        if we have ThreadPoolExecutor and workers > 0 then init ThreadPoolExecutor
-        '''
         if have_threadpoolexecutor:
-            current_app.logger.info('Library concurrent.futures.ThreadPoolExecutor found and loaded.')
-            # enabled by default with 5 threads.
-            workers = Setting.get_by_name('max_notification_workers',default=5).value
+            current_app.logger.info('ThreadPoolExecutor found and loaded.')
+            workers = Setting.get_by_name('max_notification_workers', default=5).value
             if workers:
-                current_app.logger.info('ThreadPoolExecutor enabled for notifications with max_workders {0}.'.format(workers))
+                current_app.logger.info(f'ThreadPoolExecutor enabled with max_workers={workers}.')
                 self._tpool = ThreadPoolExecutor(max_workers=workers)
             else:
-                current_app.logger.info('ThreadPoolExecutor for notifications disabled.')
+                current_app.logger.info('ThreadPoolExecutor disabled via config.')
         else:
-            current_app.logger.info('Library concurrent.futures.ThreadPoolExecutor not found. Use "sudo apt-get install python-concurrent.futures" to enable Threaded notifications.')
+            current_app.logger.info('ThreadPoolExecutor not available.')
 
     def send(self, type, **kwargs):
         errors = []
 
-        for id, n in self._notifiers.iteritems():
-            if n and n.subscribes_to(type, **kwargs):
+        for notifier in self._notifiers.values():
+            if notifier and notifier.subscribes_to(type, **kwargs):
                 try:
-                    message, rawmessage = self._build_message(type, **kwargs)
+                    message, raw_message = self._build_message(type, **kwargs)
 
                     if message:
-                        if n.delay > 0 and type in (ZONE_FAULT, ZONE_RESTORE, BYPASS):
-                            message_send_time = time.mktime((datetime.datetime.combine(datetime.date.today(), datetime.datetime.time(datetime.datetime.now())) + datetime.timedelta(minutes=delay)).timetuple())
-
-                            notify = {}
-                            notify['notification'] = n
-                            notify['message_send_time'] = message_send_time
-                            notify['message'] = message
-                            notify['raw'] = rawmessage
-                            notify['type'] = type
-                            notify['zone'] = int(kwargs.get('zone', -1))
-
-                            if notify not in self._wait_list:
-                                self._wait_list.append(notify)
+                        if notifier.delay > 0 and type in (ZONE_FAULT, ZONE_RESTORE, BYPASS):
+                            self._enqueue_delayed_notifier(type, message, raw_message, notifier, **kwargs)
                         else:
-                            n.send(type, message, rawmessage)
+                            notifier.send(type, message, raw_message)
 
                 except Exception as err:
-                    errors.append('Exception in notification {0}.send(): {1}'.format(n.__class__.__name__,str(err)))
+                    errors.append(f'Exception in {notifier.__class__.__name__}.send(): {err}')
 
         return errors
 
+    def _enqueue_delayed_notifier(self, type, message, raw_message, notifier, **kwargs):
+        delay_minutes = notifier.delay
+        send_time = time.mktime(
+            (datetime.datetime.combine(datetime.date.today(), datetime.datetime.now().time()) +
+             datetime.timedelta(minutes=delay_minutes)).timetuple()
+        )
+
+        notify = {
+            'notification': notifier,
+            'message_send_time': send_time,
+            'message': message,
+            'raw': raw_message,
+            'type': type,
+            'zone': int(kwargs.get('zone', -1))
+        }
+
+        if notify not in self._wait_list:
+            self._wait_list.append(notify)
+
     def refresh_notifier(self, id):
-        n = Notification.query.filter_by(id=id,enabled=1).first()
+        n = Notification.query.filter_by(id=id, enabled=1).first()
         if n:
             self._notifiers[id] = TYPE_MAP[n.type](n)
         else:
-            try:
-                del self._notifiers[id]
-            except KeyError:
-                pass
+            self._notifiers.pop(id, None)
 
     def test_notifier(self, id):
-        try:
-            n = self._notifiers.get(id)
-            if n:
-                n.send(None, 'Test Notification', None)
-
-        except Exception as err:
-            return str(err)
-        else:
-            return None
+        notifier = self._notifiers.get(id)
+        if notifier:
+            try:
+                notifier.send(None, 'Test Notification', None)
+            except Exception as err:
+                return str(err)
+        return None
 
     def add_subscriber(self, host, callback, timeout):
-        """
-        Add subscriber callback to our dictionary
-
-        ---- example subscriber request headers ----
-        SUBSCRIBE /api/v1/alarmdecoder/event?apikey=FOOBARKEY HTTP/1.1
-        Accept: */*
-        User-Agent: Linux UPnP/1.0 SmartThings
-        HOST: XXX.XXX.XXX.XXX:5000
-        CALLBACK: <http://XXX.XXX.XXX.XXX:39500/notify>
-        NT: upnp:event
-        TIMEOUT: Second-28800
-        """
-
-        sub_uuid = None
-
         try:
-            # if we find the host:callback in _subscribers then
-            # updated it and return the same subscription ID back.
-            for k, v in self._subscribers.items():
-                if v['host'] == host and v['callback'] == callback:
-                    sub_uuid = k
-                    break
+            for sid, sub in self._subscribers.items():
+                if sub['host'] == host and sub['callback'] == callback:
+                    return sid
 
-            # did we find an existing sid? if not make a new one.
-            if sub_uuid is None:
-                sub_uuid = str(uuid.uuid1())
+            sid = str(uuid.uuid1())
+            multiplier, val = timeout.split("-", 1)
+            expires = TIME_MULTIPLIER.get(multiplier, 1) * int(val)
+            self._subscribers[sid] = {
+                'host': host,
+                'callback': callback,
+                'timeout': time.time() + expires
+            }
 
-            # set the expireation time
-            tmultiplier, tval = timeout.split("-", 1)
-            tlength = TIME_MULTIPLIER.get(tmultiplier,1) * int(tval)
-            self._subscribers.update({sub_uuid: {'host':host, 'callback':callback, 'timeout':time.time()+tlength}})
-
-            current_app.logger.info('add_subscriber: {0}'.format(sub_uuid))
-
+            current_app.logger.info(f'add_subscriber: {sid}')
+            return sid
         except Exception as err:
-            current_app.logger.error('Error adding subscriber for host:{0} callback:{1} timeout:{2} err: {3}'.format(host, callback, timeout, str(err)))
-
-        return sub_uuid
+            current_app.logger.error(f'Error adding subscriber for host:{host} callback:{callback} timeout:{timeout} err: {err}')
+            return None
 
     def remove_subscriber(self, host, subuuid):
-        """
-        find the subscriber and remove it.
-
-        Remove subscriber if found our our dictionary
-        """
-        found = self._subscribers.pop(subuudi, None)
-        if found:
-            current_app.logger.info('remove_subscriber: found {0}'.format(subuuid))
-        else:
-            current_app.logger.info('remove_subscriber: not found {0}'.format(subuuid))
+        found = self._subscribers.pop(subuuid, None)
+        msg = 'found' if found else 'not found'
+        current_app.logger.info(f'remove_subscriber: {msg} {subuuid}')
 
     def get_subscribers(self):
         return self._subscribers
 
     def _init_notifiers(self):
-        self._notifiers = {-1: LogNotification()}   # Force LogNotification to always be present
-
+        self._notifiers = {-1: LogNotification()}
         for n in Notification.query.filter_by(enabled=1).all():
             self._notifiers[n.id] = TYPE_MAP[n.type](n)
 
     def _build_message(self, type, **kwargs):
-        message = NotificationMessage.query.filter_by(id=type).first()
-        if message:
-            message = message.text
+        message_obj = NotificationMessage.query.filter_by(id=type).first()
+        message_text = message_obj.text if message_obj else None
 
         kwargs = self._fill_replacers(type, **kwargs)
 
-        if message:
-            message = message.format(**kwargs)
+        formatted = message_text.format(**kwargs) if message_text else None
+        raw = getattr(kwargs.get("message", None), "raw", None)
 
-        rawmessage = kwargs.get('message', None)
-        if rawmessage:
-            rawmessage = getattr(rawmessage,'raw', None)
-
-        return message, rawmessage
+        return formatted, raw
 
     def _fill_replacers(self, type, **kwargs):
         if 'zone' in kwargs:
-            zone_name = Zone.get_name(kwargs['zone'])
-            kwargs['zone_name'] = zone_name if zone_name else '<unnamed>'
+            kwargs['zone_name'] = Zone.get_name(kwargs['zone']) or '<unnamed>'
 
-        if type == ARM:
-            status = kwargs.get('stay', False)
-            kwargs['arm_type'] = 'STAY' if status else 'AWAY'
+        fill_map = {
+            ARM: self._fill_arm,
+            LRR: self._fill_lrr,
+            AUI: self._fill_aui,
+            EXP: self._fill_exp,
+            RFX: self._fill_rfx,
+        }
 
-        if type == LRR:
-            message = kwargs.get('message', None)
-
-            # If it has a dict method then the backend API is newer
-            if hasattr(message, "dict"):
-                message = message.dict()
-                vp = message.get('partition', -1)
-                ved = message.get('event_description', 'Unknown')
-                vs = 'Event' if message.get('event_status', 1) == 1 else 'Restore'
-                vedt = message.get('event_data_type', -1)
-                vd = message.get('event_data', -1)
-                kwargs['status'] = "Partition {0} {1} {2} {3}{4}".format(vp, ved, vs, vedt, vd)
-            else:
-                kwargs['status'] = message
-
-        if type == AUI:
-            message = kwargs.get('message', None)
-            if hasattr(message, "dict"):
-                message = message.dict()
-                kwargs['value'] = message.get('value')
-
-        if type == EXP:
-            message = kwargs.get('message', None)
-            if hasattr(message, "dict"):
-                expmessage = message.dict()
-                kwargs['type'] = "ZONE" if message.type == 0 else "RELAY"
-                kwargs['address'] = expmessage.get('address')
-                kwargs['channel'] = expmessage.get('channel')
-                kwargs['value'] = expmessage.get('value')
-
-        if type == RFX:
-            message = kwargs.get('message', None)
-            if hasattr(message, "dict"):
-                rfxmessage = message.dict()
-                kwargs['sn'] = rfxmessage.get('serial_number')
-                kwargs['bat'] = int(rfxmessage.get('battery'))
-                kwargs['supv'] = int(rfxmessage.get('supervision'))
-                kwargs['loop0'] = int(message.loop[0]) # Not added to dict? Ok
-                kwargs['loop1'] = int(message.loop[1])
-                kwargs['loop2'] = int(message.loop[2])
-                kwargs['loop3'] = int(message.loop[3])
+        if type in fill_map:
+            fill_map[type](kwargs)
 
         return kwargs
 
-    def process_wait_list(self):
-        errors = []
+    def _fill_arm(self, kwargs):
+        kwargs['arm_type'] = 'STAY' if kwargs.get('stay', False) else 'AWAY'
 
-        for notifier in self._wait_list:
-            try:
-                if notifier['notification'].suppress > 0 and self._check_suppress(notifier):
-                    self._remove_suppressed_zone(notifier['zone'])
+    def _fill_lrr(self, kwargs):
+        msg = kwargs.get('message')
+        if hasattr(msg, "dict"):
+            msg = msg.dict()
+            kwargs['status'] = "Partition {0} {1} {2} {3}{4}".format(
+                msg.get('partition', -1),
+                msg.get('event_description', 'Unknown'),
+                'Event' if msg.get('event_status', 1) == 1 else 'Restore',
+                msg.get('event_data_type', -1),
+                msg.get('event_data', -1)
+            )
+        else:
+            kwargs['status'] = msg
 
-            except Exception as err:
-                errors.append('Error sending notification for {0}: {1}'.format(notifier['notification'].description, str(err)))
+    def _fill_aui(self, kwargs):
+        msg = kwargs.get('message')
+        if hasattr(msg, "dict"):
+            kwargs['value'] = msg.dict().get('value')
 
-        for notifier in self._wait_list:
-            try:
-                if time.time() >= notifier['message_send_time']:
-                    notifier['notification'].send(notifier['type'], notifier['message'], notifier['raw'])
-                    self._wait_list.remove(notifier)
+    def _fill_exp(self, kwargs):
+        msg = kwargs.get('message')
+        if hasattr(msg, "dict"):
+            msg_data = msg.dict()
+            kwargs['type'] = "ZONE" if getattr(msg, 'type', 0) == 0 else "RELAY"
+            kwargs['address'] = msg_data.get('address')
+            kwargs['channel'] = msg_data.get('channel')
+            kwargs['value'] = msg_data.get('value')
 
-            except Exception as err:
-                errors.append('Error sending notification for {0}: {1}'.format(notifier['notification'].description, str(err)))
+    def _fill_rfx(self, kwargs):
+        msg = kwargs.get('message')
+        if hasattr(msg, "dict"):
+            msg_data = msg.dict()
+            kwargs.update({
+                'sn': msg_data.get('serial_number'),
+                'bat': int(msg_data.get('battery')),
+                'supv': int(msg_data.get('supervision')),
+                'loop0': int(msg.loop[0]),
+                'loop1': int(msg.loop[1]),
+                'loop2': int(msg.loop[2]),
+                'loop3': int(msg.loop[3]),
+            })
 
-        return errors
-
-    def _check_suppress(self, notifier):
-        if notifier['type'] in (ZONE_RESTORE, BYPASS):
-            zone = notifier['zone']
-
-            #check the first notifier that is a zone fault, get its id, see if there was a zone restore or bypass
-            #for the same zone.   If we're suppressed on the notifier, then we won't send it out.
-            for n in self._wait_list:
-                if n['zone'] == zone:
-                    if n['type'] == ZONE_FAULT and n['notification'].suppress == 1:
-                        return True
-
-        #right now only suppress zone spam
-        return False
-
-    def _remove_suppressed_zone(self, id):
-        to_remove = []
-
-        for n in self._wait_list:
-            if n['zone'] != -1 and n['zone'] == id:
-                to_remove.append(n)
-
-        for n in to_remove:
-            self._wait_list.remove(n)
 
 
 class NotificationThread(threading.Thread):
@@ -435,20 +346,22 @@ class NotificationThread(threading.Thread):
                         current_app.logger.info('Background notification functions running {0}.'.format(ncount))
 
                     remove = []
-                    data = ""
                     for i in range(ncount):
                         f = notifier._futures[i]
                         if f.done():
                             extra_msg = ""
                             try:
-                                date = f.result()
+                                f.result()
                             except Exception as exc:
                                 extra_msg = exc
                             else:
                                 extra_msg = 'no exceptions'
 
                             with self._decoder.app.app_context():
-                                current_app.logger.info('Background notification function {0} finished with {1}.'.format(f.fcname, extra_msg))
+                                current_app.logger.info('Background notification function {0} finished with {1}.'.format(
+                                    f.fcname, extra_msg
+                                )
+                            )
 
                             remove.append(f)
 
@@ -580,23 +493,24 @@ class UPNPPushNotification(BaseNotification):
                 child = Element("z") # keep it small
                 child.text = str(z.zone)
                 faulted_zones.append(child)
-
-        ret = {
+        decoder = getattr(current_app, "decoder", None)
+        if decoder and decoder.device:
+            ret = {
             'panel_type': mode,
-            'panel_powered': current_app.decoder.device._power_status,
-            'panel_ready': getattr(current_app.decoder.device, "_ready_status", True),
-            'panel_alarming': current_app.decoder.device._alarm_status,
-            'panel_bypassed': None in current_app.decoder.device._bypass_status,
-            'panel_armed': current_app.decoder.device._armed_status,
-            'panel_armed_stay': getattr(current_app.decoder.device, "_armed_stay", False),
-            'panel_fire_detected': current_app.decoder.device._fire_status,
-            'panel_battery_trouble': current_app.decoder.device._battery_status[0],
-            'panel_panicked': current_app.decoder.device._panic_status,
-            'panel_chime': getattr(current_app.decoder.device, "_chime_status", False),
-            'panel_perimeter_only': getattr(current_app.decoder.device, "_perimeter_only_status", False),
-            'panel_entry_delay_off': getattr(current_app.decoder.device, "_entry_delay_off_status", False),
-            'panel_exit': getattr(current_app.decoder.device, "_exit", False)
-        }
+                'panel_powered': current_app.decoder.device._power_status,
+                'panel_ready': getattr(current_app.decoder.device, "_ready_status", True),
+                'panel_alarming': current_app.decoder.device._alarm_status,
+                'panel_bypassed': None in current_app.decoder.device._bypass_status,
+                'panel_armed': current_app.decoder.device._armed_status,
+                'panel_armed_stay': getattr(current_app.decoder.device, "_armed_stay", False),
+                'panel_fire_detected': current_app.decoder.device._fire_status,
+                'panel_battery_trouble': current_app.decoder.device._battery_status[0],
+                'panel_panicked': current_app.decoder.device._panic_status,
+                'panel_chime': getattr(current_app.decoder.device, "_chime_status", False),
+                'panel_perimeter_only': getattr(current_app.decoder.device, "_perimeter_only_status", False),
+                'panel_entry_delay_off': getattr(current_app.decoder.device, "_entry_delay_off_status", False),
+                'panel_exit': getattr(current_app.decoder.device, "_exit", False)
+            }
 
         # convert to XML
         el = Element("panelstate")
@@ -663,7 +577,7 @@ class UPNPPushNotification(BaseNotification):
 
     def _build_property(self, name, value, cdatatag):
         xmleventrawmessage = ""
-        if value != None:
+        if value is not None:
             if cdatatag:
                 value = "<![CDATA[" + value + "]]>"
             xmleventrawmessage = XML_EVENT_PROPERTY.format(name, value)
@@ -786,7 +700,7 @@ class EmailNotification(BaseNotification):
         if check_time_restriction(self.starttime, self.endtime):
             msg = MIMEText(text)
 
-            if self.suppress_timestamp == False:
+            if not self.suppress_timestamp:
                 message_timestamp = time.ctime(time.time())
                 msg['Subject'] = self.subject + " (" + message_timestamp + ")"
             else:
@@ -851,7 +765,7 @@ class PushoverNotification(BaseNotification):
 
                     is_sent = message.send()
 
-                    if is_sent != True:
+                    if not is_sent:
                         current_app.logger.info("Pushover Notification Failed")
                         raise Exception('Pushover Notification Failed')
                 else:
@@ -876,13 +790,13 @@ class TwilioNotification(BaseNotification):
 
     @raise_with_stack
     def send(self, type, text, raw):
-        if have_twilio == False:
+        if not have_twilio:
             raise Exception('Missing Twilio library: twilio - install using pip')
 
         text = " From " + self.notification_description + ". " + text
 
         if check_time_restriction(self.starttime, self.endtime):
-            if self.suppress_timestamp == False:
+            if not self.suppress_timestamp:
                 message_timestamp = time.ctime(time.time())
                 msg_to_send = text + " Message Sent at: " + message_timestamp
             else:
@@ -904,7 +818,7 @@ class TwilioNotification(BaseNotification):
 
         try:
             client = TwilioRestClient(self.account_sid, self.auth_token)
-            message = client.messages.create(
+            client.messages.create(
                 to=self.number_to,
                 from_=self.number_from,
                 body=twbody
@@ -930,13 +844,13 @@ class TwiMLNotification(BaseNotification):
     def send(self, type, text, raw):
         text = " From " + self.notification_description + ". " + text
         if check_time_restriction(self.starttime, self.endtime):
-            if self.suppress_timestamp == False:
+            if not self.suppress_timestamp:
                 message_timestamp = time.ctime(time.time())
                 self.msg_to_send = text + " Message Sent at: " + message_timestamp + "."
             else:
                 self.msg_to_send = text
 
-            if have_twilio == False:
+            if not have_twilio:
                 raise Exception('Missing Twilio library: twilio - install using pip')
 
             # Call function with static values and push into thread if possible.
@@ -955,7 +869,7 @@ class TwiMLNotification(BaseNotification):
 
         try:
             client = TwilioRestClient(self.account_sid, self.auth_token)
-            call = client.calls.create(
+            client.calls.create(
                 to="+" + self.number_to,
                 from_="+" + self.number_from,
                 url=twurl
@@ -983,7 +897,7 @@ class ProwlNotification(BaseNotification):
 
     def send(self, type, text, raw):
         if check_time_restriction(self.starttime, self.endtime):
-            if self.suppress_timestamp == False:
+            if not self.suppress_timestamp:
                 message_timestamp = time.ctime(time.time())
                 self.msg_to_send = text[:10000].encode('utf8') + " Message Sent at: " + message_timestamp
             else:
@@ -1048,14 +962,14 @@ class GrowlNotification(BaseNotification):
             raise Exception('Missing Growl library: gntp - install using pip')
 
         if check_time_restriction(self.starttime, self.endtime):
-            if self.suppress_timestamp == False:
+            if not self.suppress_timestamp:
                 message_timestamp = time.ctime(time.time())
                 self.msg_to_send = text + " Message Sent at: " + message_timestamp
             else:
                 self.msg_to_send = text
 
             growl_status = self.growl.register()
-            if growl_status == True:
+            if growl_status:
                 growl_notify_status = self.growl.notify(
                     noteType = GROWL_DEFAULT_NOTIFICATIONS[0],
                     title = self.title,
@@ -1063,7 +977,7 @@ class GrowlNotification(BaseNotification):
                     priority = self.priority,
                     sticky = False
                 )
-                if growl_notify_status != True:
+                if not growl_notify_status:
                     current_app.logger.info('Event Growl Notification Failed: {0}' . format(growl_notify_status))
                     raise Exception('Growl Notification Failed: {0}' . format(growl_notify_status))
 

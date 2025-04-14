@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 # In ad2web/settings/constants.py
-
+import importlib
 from ..settings import Setting
-
 from ..notifications import Notification, NotificationSetting, NotificationMessage
 from ..zones import Zone
 from ..keypad import KeypadButton
 from ..cameras import Camera
-from ..api import APIKey
+from ..api.models import APIKey
 
 HOSTS_FILE = '/etc/hosts'
 HOSTNAME_FILE = '/etc/hostname'
@@ -18,7 +17,7 @@ DAILY = 86400
 WEEKLY = 7 * DAILY
 MONTHLY = 30 * DAILY
 
-import importlib
+
 
 # Function to dynamically import User and related constants
 def get_user_and_detail():

@@ -16,8 +16,8 @@ except ImportError:
     has_upnp = False
 
 # --- Flask & SocketIO Imports ---
-from flask import request, current_app # Added flash
-from flask_socketio import Namespace, emit # emit is useful here
+from flask import request, current_app, Blueprint, session # Added flash
+from flask_socketio import Namespace, emit, SocketIO # emit is useful here
 # Import the single socketio instance from extensions
 from .extensions import db, socketio # ADDED socketio
 
@@ -26,7 +26,7 @@ import jsonpickle
 from OpenSSL import SSL
 from alarmdecoder import AlarmDecoder
 from alarmdecoder.devices import SocketDevice, SerialDevice
-from alarmdecoder.util import NoDeviceError, CommError
+from alarmdecoder.util.exceptions import NoDeviceError, CommError
 from sqlalchemy.orm.exc import NoResultFound # Import for exception handling
 
 # --- App Specific Imports ---
@@ -75,6 +75,15 @@ EVENT_MAP = {
     AUI: 'on_aui_message'
 }
 
+decodersocket = Blueprint('sock', __name__, url_prefix='/socket.io')
+
+def create_decoder_socket(app):
+    """Create and return a Flask-SocketIO instance to handle WebSockets."""
+    socketio = SocketIO(app, async_mode="gevent", cors_allowed_origins="*")
+    # Register the decoder namespace
+    socketio.on_namespace(DecoderNamespace('/alarmdecoder'))
+
+    return socketio
 
 class Decoder(object):
     """
@@ -135,18 +144,8 @@ class Decoder(object):
         """Starts the internal threads."""
         if self._event_thread and not self._event_thread.is_alive():
             self._event_thread.start()
-        if self._version_thread and not self._version_thread.is_alive():
-            self._version_thread.start()
-        if self._camera_thread and not self._camera_thread.is_alive():
-            self._camera_thread.start()
         if self._discovery_thread and not self._discovery_thread.is_alive():
             self._discovery_thread.start()
-        if self._notification_thread and not self._notification_thread.is_alive():
-            self._notification_thread.start()
-        if self._exporter_thread and not self._exporter_thread.is_alive():
-            self._exporter_thread.start()
-        if has_upnp and self._upnp_thread and not self._upnp_thread.is_alive():
-            self._upnp_thread.start()
 
     def stop(self, restart=False):
         """
@@ -441,12 +440,6 @@ class Decoder(object):
             try: self.device.on_message.clear()
             except AttributeError: pass
             try: self.device.on_lrr_message.clear()
-            except AttributeError: pass
-            try: self.device.on_ready_changed.clear()
-            except AttributeError: pass
-            try: self.device.on_chime_changed.clear()
-            except AttributeError: pass
-            try: self.device.on_rfx_message.clear()
             except AttributeError: pass
             try: self.device.on_expander_message.clear()
             except AttributeError: pass
@@ -904,12 +897,13 @@ class DecoderNamespace(Namespace):
     @socketio.on('connect', namespace='/alarmdecoder')
     def on_connect(self):
         """Handles new Socket.IO client connections."""
-        sid = request.sid # Session ID from Flask-SocketIO request context
+        # Session ID from Flask-SocketIO request context
+        sid = request.sid  # type: ignore[attr-defined]
         try:
             # Use Flask context directly
             with current_app.app_context(): # Ensure context if needed, though usually available in handlers
                  # Access decoder via current_app
-                 decoder = current_app.decoder
+                 decoder = getattr(current_app, "decoder", None)
                  logger.info(f'SocketIO client connecting: {sid} from {request.remote_addr}')
 
                  # Authentication / Setup check (adapted from old recv_connect)
@@ -950,7 +944,7 @@ class DecoderNamespace(Namespace):
     @socketio.on('disconnect', namespace='/alarmdecoder')
     def on_disconnect(self):
         """Handles Socket.IO client disconnections."""
-        logger.info(f'SocketIO client disconnected: {request.sid}')
+        logger.info(f'SocketIO client disconnected: {request.sid}')  # type: ignore[attr-defined]
         # Perform any cleanup related to this session if needed
 
 
@@ -960,7 +954,7 @@ class DecoderNamespace(Namespace):
         """Handles websocket keypress events."""
         try:
             # Access decoder via current_app
-            decoder = current_app.decoder
+            decoder = getattr(current_app, "decoder", None)
             if not decoder or not decoder.device:
                  logger.warning("Keypress received but no device available.")
                  return
@@ -987,7 +981,7 @@ class DecoderNamespace(Namespace):
     def on_firmwareupload(self, *args): # Data might be passed in args/kwargs
         """Handles firmware upload initiation via Socket.IO."""
         # Access decoder via current_app
-        decoder = current_app.decoder
+        decoder = getattr(current_app, "decoder", None)
         if not decoder:
              logger.error("Cannot perform firmware upload: Decoder not initialized.")
              return
@@ -999,12 +993,12 @@ class DecoderNamespace(Namespace):
                   if not decoder.firmware_file or decoder.firmware_length < 0:
                        logger.error("Firmware file details not set before upload requested.")
                        # Use emit back to the specific client (request.sid)
-                       emit('firmwareupload', {'stage': 'STAGE_ERROR', 'error': 'Firmware file not prepared.'}, room=request.sid)
+                       emit('firmwareupload', {'stage': 'STAGE_ERROR', 'error': 'Firmware file not prepared.'}, room=request.sid)   # type: ignore[attr-defined]
                        return
 
                   logger.info(f"Starting firmware update: {decoder.firmware_file}")
                   # Use emit for progress updates back to client
-                  emit('firmwareupload', {'stage': 'STAGE_START'}, room=request.sid)
+                  emit('firmwareupload', {'stage': 'STAGE_START'}, room=request.sid)   # type: ignore[attr-defined]
 
                   # Ensure device is closed without reader thread for update
                   decoder.close()
@@ -1025,16 +1019,16 @@ class DecoderNamespace(Namespace):
 
                   if firmware_updater.completed:
                        logger.info("Firmware update completed successfully.")
-                       emit('firmwareupload', {'stage': 'STAGE_FINISHED'}, room=request.sid)
+                       emit('firmwareupload', {'stage': 'STAGE_FINISHED'}, room=request.sid)   # type: ignore[attr-defined]
                        reopen_with_reader = True # Reopen normally after success
                   else:
                        # Updater might have its own error status/message
                        logger.error("Firmware update failed or did not complete.")
-                       emit('firmwareupload', {'stage': 'STAGE_ERROR', 'error': 'Firmware update did not complete.'}, room=request.sid)
+                       emit('firmwareupload', {'stage': 'STAGE_ERROR', 'error': 'Firmware update did not complete.'}, room=request.sid)   # type: ignore[attr-defined]
 
         except Exception as err:
             logger.error(f'Error during firmware upload process: {err}', exc_info=True)
-            emit('firmwareupload', {'stage': 'STAGE_ERROR', 'error': f'Error: {err}'}, room=request.sid)
+            emit('firmwareupload', {'stage': 'STAGE_ERROR', 'error': f'Error: {err}'}, room=request.sid)   # type: ignore[attr-defined]
 
         finally:
              # Always try to close and reopen the device in normal mode (with reader)
@@ -1074,7 +1068,7 @@ class DecoderNamespace(Namespace):
         except Exception as e:
             logger.error(f'Error running device tests: {e}', exc_info=True)
             # Emit a general error back to client
-            emit('test', {'test': 'overall', 'results': 'ERROR', 'details': f'Error during testing: {e}'}, room=request.sid)
+            emit('test', {'test': 'overall', 'results': 'ERROR', 'details': f'Error during testing: {e}'}, room=request.sid)   # type: ignore[attr-defined]
 
 
     # --- Test Helper Methods (now outside class or passed decoder) ---
@@ -1098,14 +1092,14 @@ class DecoderNamespace(Namespace):
             results, details = 'FAIL', f'Unexpected error opening device: {err}'
             logger.error(f'Test Open Failed (Unexpected): {err}', exc_info=True)
         finally:
-            emit('test', {'test': 'open', 'results': results, 'details': details}, room=request.sid)
+            emit('test', {'test': 'open', 'results': results, 'details': details}, room=request.sid)   # type: ignore[attr-defined]
 
 
     def _test_config(self, decoder):
         """Tests retrieving and saving the AlarmDecoder configuration."""
         logger.debug("Running test: Config Save/Receive")
         if not decoder or not decoder.device:
-             emit('test', {'test': 'config', 'results': 'FAIL', 'details': 'Device not open/available.'}, room=request.sid)
+             emit('test', {'test': 'config', 'results': 'FAIL', 'details': 'Device not open/available.'}, room=request.sid)   # type: ignore[attr-defined]
              return
 
         config_received_flag = threading.Event()
@@ -1171,14 +1165,14 @@ class DecoderNamespace(Namespace):
             if hasattr(decoder, 'device') and decoder.device and on_config_received in decoder.device.on_config_received:
                 decoder.device.on_config_received.remove(on_config_received)
             # Emit final result
-            emit('test', {'test': 'config', 'results': results, 'details': details}, room=request.sid)
+            emit('test', {'test': 'config', 'results': results, 'details': details}, room=request.sid)   # type: ignore[attr-defined]
 
 
     def _test_send(self, decoder):
         """Tests keypress sending functionality."""
         logger.debug("Running test: Send Keypress")
         if not decoder or not decoder.device:
-             emit('test', {'test': 'send', 'results': 'FAIL', 'details': 'Device not open/available.'}, room=request.sid)
+             emit('test', {'test': 'send', 'results': 'FAIL', 'details': 'Device not open/available.'}, room=request.sid)  # type: ignore[attr-defined]
              return
 
         send_ok_flag = threading.Event()
@@ -1209,14 +1203,14 @@ class DecoderNamespace(Namespace):
         finally:
             if hasattr(decoder, 'device') and decoder.device and on_sending_received in decoder.device.on_sending_received:
                 decoder.device.on_sending_received.remove(on_sending_received)
-            emit('test', {'test': 'send', 'results': results, 'details': details}, room=request.sid)
+            emit('test', {'test': 'send', 'results': results, 'details': details}, room=request.sid)   # type: ignore[attr-defined]
 
 
     def _test_receive(self, decoder):
         """Tests message received events."""
         logger.debug("Running test: Receive Message")
         if not decoder or not decoder.device:
-             emit('test', {'test': 'recv', 'results': 'FAIL', 'details': 'Device not open/available.'}, room=request.sid)
+             emit('test', {'test': 'recv', 'results': 'FAIL', 'details': 'Device not open/available.'}, room=request.sid)   # type: ignore[attr-defined]
              return
 
         message_received_flag = threading.Event()
@@ -1244,6 +1238,6 @@ class DecoderNamespace(Namespace):
         finally:
              if hasattr(decoder, 'device') and decoder.device and on_message in decoder.device.on_message:
                  decoder.device.on_message.remove(on_message)
-             emit('test', {'test': 'recv', 'results': results, 'details': details}, room=request.sid)
+             emit('test', {'test': 'recv', 'results': results, 'details': details}, room=request.sid)   # type: ignore[attr-defined]
 
 # --- Removed create_decoder_socket and decodersocket blueprint ---

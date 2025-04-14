@@ -7,6 +7,7 @@ Flask-Mail
 Flask-Testing
 Flask-SocketIO
 flask-openid
+Flask-Script
 SQLAlchemy>=1.4
 alembic
 markupsafe
@@ -28,3 +29,8 @@ numpy
 requests
 gevent
 sh
+fabric==1.14.1
+jsonpickle
+miniupnpc
+psutil
+shutilwhich

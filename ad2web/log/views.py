@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import os
-import cgi
+import html
+import json
+import collections
 
 from flask import Blueprint, render_template, request, url_for, redirect
 from flask import current_app as APP
@@ -9,15 +11,14 @@ from flask_login import login_required
 
 from ..extensions import db
 from ..decorators import admin_required
-from .constants import ARM, DISARM, POWER_CHANGED, ALARM, FIRE, BYPASS, BOOT, \
-                        CONFIG_RECEIVED, ZONE_FAULT, ZONE_RESTORE, LOW_BATTERY, \
-                        PANIC, EVENT_TYPES, LRR, READY, RFX, EXP, AUI
+from .constants import (
+    ARM, DISARM, POWER_CHANGED, ALARM, FIRE, BYPASS, BOOT,
+    CONFIG_RECEIVED, ZONE_FAULT, ZONE_RESTORE, LOW_BATTERY,
+    PANIC, EVENT_TYPES, LRR, READY, RFX, EXP, AUI
+)
 from .models import EventLogEntry
 from ..logwatch import LogWatcher
 from ..utils import INSTANCE_FOLDER_PATH
-
-import json
-import collections
 
 log = Blueprint('log', __name__, url_prefix='/log')
 
@@ -45,12 +46,12 @@ def log_context_processor():
         'TYPES': EVENT_TYPES
     }
 
+
 @log.route('/')
 @login_required
 def events():
-#    event_log = None #EventLogEntry.query.order_by(EventLogEntry.timestamp.desc()).limit(50)
-
     return render_template('log/events.html', active="events")
+
 
 @log.route('/live')
 @login_required
@@ -58,13 +59,15 @@ def events():
 def live():
     return render_template('log/live.html', active='live')
 
+
 @log.route('/delete')
 @login_required
 @admin_required
 def delete():
-    events = EventLogEntry.query.delete()
+    EventLogEntry.query.delete()
     db.session.commit()
     return redirect(url_for('log.events'))
+
 
 @log.route('/alarmdecoder')
 @login_required
@@ -72,113 +75,82 @@ def delete():
 def alarmdecoder_logfile():
     return render_template('log/alarmdecoder.html', active='AlarmDecoder')
 
+
 @log.route('/alarmdecoder/get_data/<int:lines>', methods=['GET'])
 @login_required
 @admin_required
 def get_log_data(lines):
     log_file = os.path.join(INSTANCE_FOLDER_PATH, 'logs', 'info.log')
-
     try:
         log_text = LogWatcher.tail(log_file, lines)
     except IOError as err:
         return json.dumps([str(err)])
-
     return json.dumps(log_text)
 
-#XHR for retrieving event log data server side
+
 @log.route('/retrieve_events_paging_data')
 @login_required
 def get_events_paging_data():
-    results = {}
-
     try:
-        #get results from datatable via XHR
-        results = DataTablesServer(request).output_result()
+        return json.dumps(DataTablesServer(request).output_result())
     except TypeError as ex:
-        APP.logger.warning("Error processing datatables request: {0}".format(ex))
+        APP.logger.warning(f"Error processing datatables request: {ex}")
+        return json.dumps({})
 
-    return json.dumps(results)
 
 class DataTablesServer:
-    def __init__( self, request ):
-        #values specified by datatable for filtering, sorting, paging etc
+    Pages = collections.namedtuple('Pages', ['start', 'length'])
+
+    def __init__(self, request):
         self.request_values = request.values
         self.result_data = None
-
-        #total in table unfiltered
         self.cardinality = 0
-        #total in table after filter
         self.cardinality_filtered = 0
-
         self.run_queries()
 
     def output_result(self):
-        output = {}
-        output['sEcho'] = cgi.escape(str(int(self.request_values['sEcho'])))
-        output['iTotalRecords'] = int(self.cardinality)
-        output['iTotalDisplayRecords'] = int(self.cardinality)
-
-        aaData_rows = []
-
-        #iterate the result and append data rows
-        for row in self.result_data:
-            aaData_row = []
-            aaData_row.append(str(row.timestamp))
-            aaData_row.append(EVENT_TYPES[row.type])
-            aaData_row.append(row.message)
-
-            aaData_rows.append(aaData_row)
-
-        output['aaData'] = aaData_rows
-        return output
+        return {
+            'sEcho': html.escape(str(int(self.request_values['sEcho']))),
+            'iTotalRecords': int(self.cardinality),
+            'iTotalDisplayRecords': int(self.cardinality_filtered),
+            'aaData': [
+                [str(row.timestamp), EVENT_TYPES[row.type], row.message]
+                for row in self.result_data
+            ]
+        }
 
     def run_queries(self):
         pages = self.paging()
-        filter = self.filtering()
+        search_filter = self.filtering()
 
-        #page to start on
-        start = 0
-        #number of records to return
-        limit = 10
+        start = pages.start or 0
+        limit = pages.length or 10
 
-        #non-default values chosen from the UI
-        if pages.start is not None:
-            start = pages.start
-        if pages.length is not None:
-            limit = pages.length
+        try:
+            if search_filter:
+                query = EventLogEntry.query.filter(EventLogEntry.message.like(f'%{search_filter}%'))
+                self.result_data = query.order_by(EventLogEntry.timestamp.desc()).limit(limit).offset(start)
+                self.cardinality_filtered = query.count()
+                self.cardinality = query.count()
+            else:
+                query = EventLogEntry.query.order_by(EventLogEntry.timestamp.desc())
+                self.result_data = query.limit(limit).offset(start)
+                self.cardinality_filtered = query.count()
+                self.cardinality = query.count()
+        except Exception as e:
+            APP.logger.error(f"Error querying event logs: {e}")
 
-        #if filtered, cardinality based off filter, otherwise all rows
-        if filter is not None:
-            try:
-                self.result_data = EventLogEntry.query.filter(EventLogEntry.message.like('%' + filter + '%')).order_by(EventLogEntry.timestamp.desc()).limit(limit).offset(start)
-                self.cardinality_filtered = self.result_data.count()
-                self.cardinality = EventLogEntry.query.filter(EventLogEntry.message.like('%' + filter + '%')).count()
-            except Exception:
-                pass
-        else:
-            try:
-                self.result_data = EventLogEntry.query.order_by(EventLogEntry.timestamp.desc()).limit(limit).offset(start)
-                self.cardinality_filtered = self.result_data.count()
-                self.cardinality = EventLogEntry.query.order_by(EventLogEntry.timestamp.desc()).count()
-            except Exception:
-                pass
-
-    #here we determine the filter value for the search box and apply to the queries
     def filtering(self):
-        filter = None
-        if( self.request_values.has_key('sSearch')) and (self.request_values['sSearch'] != "" ):
-            filter = cgi.escape(str(self.request_values['sSearch']))
+        if 'sSearch' in self.request_values and self.request_values['sSearch']:
+            return html.escape(str(self.request_values['sSearch']))
+        return None
 
-        return filter
-
-    #determine what page we're on, as well as how many to show per page
     def paging(self):
-        pages = collections.namedtuple('pages', ['start', 'length'])
-        if( self.request_values['iDisplayStart'] != "" ) and (self.request_values['iDisplayLength'] != -1 ):
-            if self.request_values['iDisplayStart'].isdigit() is False or self.request_values['iDisplayLength'].isdigit() is False:
-                return pages
-
-            pages.start = int(cgi.escape(self.request_values['iDisplayStart']))
-            pages.length = int(cgi.escape(self.request_values['iDisplayLength']))
-
-        return pages
+        try:
+            start_str = self.request_values.get('iDisplayStart', '')
+            length_str = self.request_values.get('iDisplayLength', '')
+            if start_str.isdigit() and length_str.isdigit():
+                return self.Pages(start=int(start_str), length=int(length_str))
+        except Exception:
+            pass
+        return self.Pages(start=0, length=10)

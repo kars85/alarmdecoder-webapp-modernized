@@ -6,6 +6,7 @@ import importlib
 from flask import Blueprint, render_template, send_from_directory, abort
 from flask import current_app as APP
 from flask_login import login_required, current_user
+from .models import UserHistory
 
 from ..utils import user_is_authenticated
 

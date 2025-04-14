@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-
+#import urllib2
+import ssl
+# ADD THIS IMPORT near the top of ad2web/settings/views.py
+from urllib.request import urlopen
+# You already import ssl, so that's fine
 import os
 import platform
 import hashlib
@@ -20,15 +24,10 @@ except ImportError:
 #import compiler
 import sys
 import importlib
+from importlib.util import find_spec
+has_upnp = find_spec("miniupnpc") is not None
 import time
-
-try:
-    import miniupnpc
-    has_upnp = True
-except ImportError:
-    has_upnp = False
-
-#from compiler.ast import Discard, Const
+import ast
 #from compiler.visitor import ASTVisitor
 # In ad2web/settings/views.py
 from datetime import datetime, timedelta
@@ -54,11 +53,7 @@ from ..exporter import Exporter
  #Check if the 'service' command is available on the system
 hasservice = shutil.which("service") is not None
 
-#import urllib2
-import ssl
-# ADD THIS IMPORT near the top of ad2web/settings/views.py
-from urllib.request import urlopen
-# You already import ssl, so that's fine
+
 
 settings = Blueprint('settings', __name__, url_prefix='/settings')
 
@@ -403,14 +398,12 @@ def configure_ethernet_device(device):
 
     return render_template('settings/configure_ethernet_device.html', form=form, device=device, active="network settings")
 
-def _sethostname(config_file, old_hostname, new_hostname):
+def _sethostname(config_file, new_hostname):
     #read the file and determine location where our old hostname is
     f = open(config_file, 'r')
     set_host = f.read()
     f.close()
-    pointer_hostname = set_host.find(old_hostname)
-    #replace old hostname with new hostname and write
-    set_host = set_host.replace(old_hostname, new_hostname)
+    set_host = set_host.replace(new_hostname)
     f = open(config_file, 'w')
     f.write(set_host)
     f.close()
@@ -427,7 +420,8 @@ def _parse_network_file():
     text = open(NETWORK_FILE, 'r').read()
     #iface string should also contain dhcp/static address gateway netmask information according to the RE
     indexes = [s.start() for s in re.finditer('auto|iface|source|mapping|allow-|wpa-', text)]
-    result = map(text.__getslice__, indexes, indexes[1:] + [len(text)])
+    result = list(map(text.__getslice__, indexes, indexes[1:] + [len(text)]))
+
 
     return result
 
@@ -458,7 +452,7 @@ def _get_ethernet_properties(device, device_map):
 
 #system uptime
 def _get_system_uptime():
-    with open('/proc/uptime', 'r') as f:
+    with open(str('/proc/uptime'), 'r') as f:
         uptime_seconds = float(f.readline().split()[0])
         uptime_string = str(timedelta(seconds = uptime_seconds))
 
@@ -675,8 +669,6 @@ def import_backup():
 
         try:
             with tarfile.open(mode='r:gz', fileobj=fileobj) as tar:
-                root = tar.getmember(prefix)
-
                 # Get the EXPORT_MAP dynamically to avoid circular imports
                 from .constants import get_export_map
                 EXPORT_MAP = get_export_map()
@@ -807,7 +799,7 @@ def get_system_imports():
             try:
                 importlib.import_module( val )
                 found = 1
-except Exception:
+            except Exception:
                 found = 0
         else:
             found = 0
@@ -1065,18 +1057,19 @@ class ImportVisitor(object):
                     self.recent.append(mod)
                     self.exists.append(exist)
 
-        def default(self, node):
-            pragma = None
-            if self.recent:
-                if isinstance(node, Discard):
-                    children = node.getChildren()
-                    if len(children) == 1 and isinstance(children[0], Const):
-                        const_node = children[0]
-                        pragma = const_node.value
+        class MyVisitor(ast.NodeVisitor):
+            def __init__(self):
+                self.recent = True  # example value
 
-            self.accept_imports(pragma)
+            def visit_Expr(self, node):
+                if self.recent:
+                    if isinstance(node.value, ast.Constant):
+                        # Do something specific here if needed
+                        pass
 
-        def accept_imports(self, pragma=None):
+                self.generic_visit(node)
+
+        def accept_imports(self):
             for item in self.recent:
                 self.modules.append(item)
             self.recent = []

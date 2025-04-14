@@ -24,6 +24,6 @@ class Hex(object):
 
     def __call__(self, form, field):
         try:
-            num = int(field.data, 16)
-except Exception:
+            int(field.data, 16)
+        except Exception:
             raise ValidationError(self.message)

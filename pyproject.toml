@@ -24,8 +24,8 @@ target-version = "py39"  # Replace with "py38", "py310", etc. as needed
 # Error and warning codes you want Ruff to check
 # For example: “E” for pycodestyle errors, “F” for pyflakes issues, “W” for warnings, etc.
 # See Ruff’s documentation for complete code references.
-select = ["E", "F", "W", "C90"]
+lint.select = ["E", "F", "W", "C90"]
 
 # Codes to ignore. If, for example, you dislike E501 ("line too long"), you can ignore it.
-ignore = ["E501"]
+lint.ignore = ["E501"]
 

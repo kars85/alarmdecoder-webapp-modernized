@@ -1,7 +1,7 @@
 # Make sure ALL constants used below are imported or defined
 # It looks like UPLOAD_FOLDER and OPENID_FS_STORE_PATH might be missing?
 # Assuming they are also in utils for this example:
-from ad2web.extensions import db, login_manager, babel # mail needs to be added here if defined in extensions
+from ad2web.extensions import login_manager  # mail needs to be added here if defined in extensions
 
 # Import the User model
 from ad2web.user.models import User # Adjust path if needed
