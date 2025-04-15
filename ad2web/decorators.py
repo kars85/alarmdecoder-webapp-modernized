@@ -20,7 +20,7 @@ def admin_or_first_run_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if user_is_anonymous(current_user) or not current_user.is_admin():
-            if Setting.get_by_name('setup_complete', default=False) == True:
+            if Setting.get_by_name('setup_complete', default=False).value:
                 abort(403)
 
         return f(*args, **kwargs)

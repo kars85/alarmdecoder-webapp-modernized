@@ -34,11 +34,11 @@ class Exporter(object):
         self.full_path = os.path.join(self.export_path, self.filename)
         # ---> ADD THIS LINE TO GET THE MAP <---
         EXPORT_MAP = get_export_map()
-        with tarfile.open(name=bytes(self.filename), mode=self.WRITE_MODE, fileobj=self.fileobj) as tar:
+        with tarfile.open(name=self.filename, mode=self.WRITE_MODE, fileobj=self.fileobj) as tar:
             tar_add_directory(tar, self.prefix)
 
-            for export_file, model in EXPORT_MAP.iteritems():
-                tar_add_textfile(tar, export_file, bytes(self._export_model(model)), self.prefix)
+            for export_file, model in EXPORT_MAP.items():  # .items() instead of .iteritems()
+                tar_add_textfile(tar, export_file, self._export_model(model).encode('utf-8'), self.prefix)
 
     def writeFile(self):
         with open(self.full_path, self.WRITE_MODE) as out:

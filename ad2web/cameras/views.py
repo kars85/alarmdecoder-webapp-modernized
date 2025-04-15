@@ -47,8 +47,8 @@ def create_camera():
 
 @cameras.route('/edit_camera/<int:id>', methods=['GET', 'POST'])
 @login_required
-def edit_camera(id):
-    cam = Camera.query.filter_by(id=id,user_id=current_user.id).first_or_404()
+def edit_camera(camera_id):
+    cam = Camera.query.filter_by(id=camera_id,user_id=current_user.id).first_or_404()
     form = CameraForm(obj=cam)
 
     if form.validate_on_submit():
@@ -61,12 +61,12 @@ def edit_camera(id):
         flash('Camera Updated', 'success')
 
     use_ssl = Setting.get_by_name('use_ssl', default=False).value
-    return render_template('cameras/edit_cam.html', form=form, id=id, active="cameras", ssl=use_ssl)
+    return render_template('cameras/edit_cam.html', form=form, camera_id=camera_id, active="cameras", ssl=use_ssl)
 
 @cameras.route('/remove_camera/<int:id>', methods=['GET', 'POST'])
 @login_required
-def remove_camera(id):
-    cam = Camera.query.filter_by(id=id,user_id=current_user.id).first_or_404()
+def remove_camera(camera_id):
+    cam = Camera.query.filter_by(id=camera_id,user_id=current_user.id).first_or_404()
 
     db.session.delete(cam)
     db.session.commit()

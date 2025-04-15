@@ -1,9 +1,8 @@
 try:
     import miniupnpc
-    has_upnp = True
 except ImportError:
-    has_upnp = False
-
+    miniupnpc = None
+has_upnp = miniupnpc is not None
 import threading
 import time
 from .settings.models import Setting
@@ -27,10 +26,9 @@ class UPNPThread(threading.Thread):
     def stop(self):
         if self.upnp is not None:
             try:
-                self.upnp.removePortForward(self.external_port)
-            except Exception:
-                pass
-                #self._decoder.app.logger.info("UPNP Error: {0}".format(e))
+                self.upnp.removeportforward(self.external_port)
+            except Exception as e:
+                self._decoder.app.logger.warning(f"UPNP removePortForward error: {e}")
 
         self._running = False
 
@@ -43,22 +41,21 @@ class UPNPThread(threading.Thread):
                 self.external_port = Setting.get_by_name('upnp_external_port',default=None).value
                 if self.internal_port is not None and self.external_port is not None and self.upnp is not None:
                     try:
-                        self.upnp.addPortForward(self.internal_port, self.external_port)
-                    except Exception:
-                        pass
-                        #self._decoder.app.logger.error("UPNP Error: {0}".format(e))
+                        self.upnp.addportforward(self.internal_port, self.external_port)
+                    except Exception as e:
+                        self._decoder.app.logger.warning(f"UPNP removePortForward error: {e}")
 
-            time.sleep(self.TIMEOUT)
+        time.sleep(self.TIMEOUT)
 
 
-class UPNP():
+class UPNP:
     def __init__(self, decoder):
         self._decoder = decoder
         if has_upnp:
             self.upnp = miniupnpc.UPnP()
             self.upnp.discoverdelay = 10
 
-    def addPortForward(self, internal_port, external_port):
+    def addportforward(self, internal_port, external_port):
         try:
             if has_upnp:
                 discover = self.upnp.discover()
@@ -73,7 +70,7 @@ class UPNP():
         except Exception:
             raise
 
-    def removePortForward(self, external_port):
+    def removeportforward(self, external_port):
         try:
             if has_upnp:
                 discover = self.upnp.discover()

@@ -21,15 +21,17 @@ class LogWatcher(object):
 
     Example:
 
-    >>> def callback(filename, lines):
+    def callback(filename, lines):
     ...     print(filename, lines)
     ...
-    >>> lw = LogWatcher("/var/log/", callback)
-    >>> lw.loop()
+    lw = LogWatcher("/var/log/", callback)
+    lw.loop()
     """
 
-    def __init__(self, folder, callback, extensions=["log"], tail_lines=0,
-                       sizehint=1048576):
+    def __init__(self, folder, callback, extensions=None, tail_lines=0,
+                 sizehint=1048576):
+        if extensions is None:
+            extensions = ["log"]
         """Arguments:
 
         (str) @folder:
@@ -51,15 +53,17 @@ class LogWatcher(object):
             a file on every ieration (as opposed to load the entire
             file in memory until EOF is reached). Defaults to 1MB.
         """
+        if extensions is None:
+            extensions = ["log"]
         self.folder = os.path.realpath(folder)
         self.extensions = extensions
         self._files_map = {}
         self._callback = callback
-        self._sizehint = sizehint
+        self._sizehint = int(sizehint)
         assert os.path.isdir(self.folder), self.folder
         assert callable(callback), repr(callback)
         self.update_files()
-        for id, file in self._files_map.items():
+        for file_id, file in self._files_map.items():
             file.seek(os.path.getsize(file.name))  # EOF
             if tail_lines:
                 try:
@@ -96,7 +100,8 @@ class LogWatcher(object):
                 return
             time.sleep(interval)
 
-    def log(self, line):
+    @staticmethod
+    def log(line):
         """Log when a file is un/watched"""
         print(line)
 
@@ -113,7 +118,7 @@ class LogWatcher(object):
             return ls
 
     @classmethod
-    def open(cls, file):
+    def open(cls, file_path):
         """Wrapper around open().
         By default files are opened in binary mode and readlines()
         will return bytes on both Python 2 and 3.
@@ -125,39 +130,39 @@ class LogWatcher(object):
           return codecs.open(file, 'r', encoding=locale.getpreferredencoding(),
                              errors='ignore')
         """
-        return open(file, 'rb')
+        return open(file_path, 'rb')
 
     @classmethod
     def tail(cls, fname, window):
         """Read last N lines from file fname."""
         if window <= 0:
-            raise ValueError('invalid window value %r' % window)
+            raise ValueError(f'invalid window value: {window}')
         with cls.open(fname) as f:
-            BUFSIZ = 1024
-            # True if open() was overridden and file was opened in text
-            # mode. In that case readlines() will return unicode strings
-            # instead of bytes.
-            encoded = getattr(f, 'encoding', False)
-            CR = '\n' if encoded else b'\n'
-            data = '' if encoded else b''
+            bufsize = 1024
+            is_text_mode = isinstance(f.read(0), str)  # Detect if open() returned a text file
+            newline = '\n' if is_text_mode else b'\n'
+            data = '' if is_text_mode else b''
+
             f.seek(0, os.SEEK_END)
             fsize = f.tell()
             block = -1
-            exit = False
-            while not exit:
-                step = (block * BUFSIZ)
-                if abs(step) >= fsize:
-                    f.seek(0)
-                    newdata = f.read(BUFSIZ - (abs(step) - fsize))
-                    exit = True
-                else:
-                    f.seek(step, os.SEEK_END)
-                    newdata = f.read(BUFSIZ)
+            while True:
+                step = block * bufsize
+                seek_pos = max(fsize + step, 0)  # prevent negative seek
+                f.seek(seek_pos)
+                newdata = f.read(bufsize)
+
+                # Ensure data types match
+                if not is_text_mode and isinstance(newdata, str):
+                    newdata = newdata.encode('utf-8')
+                elif is_text_mode and isinstance(newdata, bytes):
+                    newdata = newdata.decode('utf-8', errors='ignore')
+
                 data = newdata + data
-                if data.count(CR) >= window:
+                if data.count(newline) >= window or seek_pos == 0:
                     break
-                else:
-                    block -= 1
+                block -= 1
+
             return data.splitlines()[-window:]
 
     def update_files(self):
@@ -199,11 +204,14 @@ class LogWatcher(object):
         """Read file lines since last access until EOF is reached and
         invoke callback.
         """
+        lines_read = []
         while True:
             lines = file.readlines(self._sizehint)
             if not lines:
                 break
+            lines_read.extend(lines)
             self._callback(file.name, lines)
+        return lines_read  # Return the lines read
 
     def watch(self, fname):
         try:
@@ -235,6 +243,6 @@ class LogWatcher(object):
             return "%f" % st.st_ctime
 
     def close(self):
-        for id, file in self._files_map.items():
+        for file_id, file in self._files_map.items():
             file.close()
         self._files_map.clear()

@@ -1,8 +1,8 @@
 import os
 import logging
 import json
-import urllib
-
+from urllib.request import urlopen
+from typing import Tuple
 import sh
 import sqlalchemy.exc
 from sqlalchemy import create_engine
@@ -11,13 +11,11 @@ from alembic.migration import MigrationContext
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from flask import current_app
-
 from alarmdecoder.util.firmware import Firmware
-
 from .constants import FIRMWARE_JSON_URL
 
 try:
-    current_app._get_current_object()
+    current_app._get_current_object()   # type: ignore[attr-defined]
     running_in_context = True
 except RuntimeError:
     running_in_context = False
@@ -43,10 +41,11 @@ class Updater(object):
         """
         Constructor
         """
-        self._components = {}
-
-        self._components['AlarmDecoderWebapp'] = WebappUpdater('AlarmDecoderWebapp', project_url='https://github.com/nutechsoftware/alarmdecoder-webapp')
-        self._components['AlarmDecoderLibrary'] = SourceUpdater('AlarmDecoderLibrary', project_url='https://github.com/nutechsoftware/alarmdecoder', path=current_app.config['ALARMDECODER_LIBRARY_PATH'])
+        self._components = {'AlarmDecoderWebapp': WebappUpdater('AlarmDecoderWebapp',
+                                                                project_url='https://github.com/nutechsoftware/alarmdecoder-webapp'),
+                            'AlarmDecoderLibrary': SourceUpdater('AlarmDecoderLibrary',
+                                                                 project_url='https://github.com/nutechsoftware/alarmdecoder',
+                                                                 path=current_app.config['ALARMDECODER_LIBRARY_PATH'])}
         # TODO: ser2sock goes here, if installed from source.
 
     def check_updates(self):
@@ -57,12 +56,13 @@ class Updater(object):
         """
         status = {}
 
-        for name, component in self._components.iteritems():
+        for name, component in self._components.items():
             component.refresh()
             status[name] = (component.needs_update, component.branch, component.local_revision, component.remote_revision, component.status, component.project_url)
 
         return status
 
+    @staticmethod
     def check_firmware(self):
 
         version = None
@@ -75,7 +75,7 @@ class Updater(object):
             data = None
             version = version[1:]
             try:
-                response = urllib.urlopen(FIRMWARE_JSON_URL)
+                response = urlopen(FIRMWARE_JSON_URL)
                 data = json.loads(response.read())
                 for firmware in data['firmware']:
                     if firmware['tag'] == "Stable":
@@ -105,12 +105,11 @@ class Updater(object):
 
         if component_name is not None:
             component = self._components[component_name]
-
             ret[component_name] = component.update()
         else:
-            for name, component in self._components.iteritems():
-                if component.needs_update():
-                    ret[component_name] = component.update()
+            for name, component in self._components.items():
+                if component.needs_update:
+                    ret[name] = component.update()
 
         _log('Update process finished.')
 
@@ -156,7 +155,7 @@ class WebappUpdater(object):
     @property
     def commit_count(self):
         """Returns the number of commits behind and ahead of the remote branch"""
-        return self._source_updater.commits_behind, self._source_updater.commits_ahead
+        return self._source_updater.commit_count
 
     @property
     def status(self):
@@ -293,11 +292,6 @@ class SourceUpdater(object):
         return self._remote_revision
 
     @property
-    def commit_count(self):
-        """Returns the number of commits behind and ahead of the remote branch"""
-        return self._commits_behind, self._commits_ahead
-
-    @property
     def status(self):
         """Returns the status string"""
         return self._status
@@ -343,9 +337,6 @@ class SourceUpdater(object):
             _log('SourceUpdater: disabled')
             return False
 
-        git_succeeded = False
-        git_revision = self.local_revision
-
         try:
             self._git.merge('origin/{0}'.format(self.branch))
             git_succeeded = True
@@ -372,6 +363,11 @@ class SourceUpdater(object):
             # TODO do something here?
             pass
 
+    @property
+    def commit_count(self) -> Tuple[int, int]:
+        """Returns the number of commits behind and ahead of the remote branch."""
+        return self._commits_behind, self._commits_ahead
+    
     def _retrieve_commit_count(self):
         """
         Retrieves the commit counts
@@ -502,10 +498,10 @@ class SourceUpdater(object):
                 name, path = r.split("\t")
                 if name == 'origin' and '@' in path:
                     return False
-        except sh.ErrorReturnCode_128:
-            return False
-
-        return True
+        except sh.ErrorReturnCode as e:
+            if e.exit_code == 128:
+                return False
+        return False
 
 
 class DBUpdater(object):
@@ -632,7 +628,7 @@ class FirmwareUpdater(object):
         self.completed = False
         self._upload_tick = 0
         self._wait_tick = 0
-
+        self.logger = current_app.logger
     def update(self):
         """Update the firmware."""
         try:
@@ -646,45 +642,48 @@ class FirmwareUpdater(object):
         except Exception as err:
             # Log error and broadcast failure
             current_app.logger.error(f"Error updating firmware: {err}")
-            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_ERROR', 'error': str(err)})
+            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_ERROR', 'error': str(err)})    # type: ignore[attr-defined]
 
     def _stage_callback(self, stage, **kwargs):
         """
         Callback function that handles different stages of the firmware upload process.
         """
-        if stage == Firmware.STAGE_START:
-            current_app.logger.info("Beginning firmware update process..")
-            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_START'})
 
-        elif stage == Firmware.STAGE_WAITING:
-            if self._wait_tick == 0:
-                current_app.logger.debug("Waiting for device.")
-            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_WAITING'})
+    def _handle_stage_start(self):
+        self.logger.info("Beginning firmware update process..")
+        current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_START'})   # type: ignore[attr-defined]
 
-        elif stage == Firmware.STAGE_BOOT:
-            current_app.logger.debug("Rebooting device..")
-            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_BOOT'})
+    def _handle_stage_waiting(self):
+        if self._wait_tick == 0:
+            self.logger.debug("Waiting for device.")
+        current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_WAITING'})  # type: ignore[attr-defined]
 
-        elif stage == Firmware.STAGE_LOAD:
-            current_app.logger.debug("Waiting for boot loader..")
-            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_LOAD'})
+    def _handle_stage_boot(self):
+        self.logger.debug("Rebooting device..")
+        current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_BOOT'})   # type: ignore[attr-defined]
 
-        elif stage == Firmware.STAGE_UPLOADING:
-            if self._upload_tick == 0:
-                current_app.logger.info("Uploading firmware.")
-            self._upload_tick += 1
+    def _handle_stage_load(self):
+        self.logger.debug("Waiting for boot loader..")
+        current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_LOAD'})   # type: ignore[attr-defined]
 
-            percent = int((self._upload_tick / float(self._firmware_length)) * 100)
-            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_UPLOADING', 'percent': percent})
+    def _handle_stage_uploading(self, kwargs):
+        if self._upload_tick == 0:
+            self.logger.info("Uploading firmware.")
+        self._upload_tick += 1
+        percent = int((self._upload_tick / float(self._firmware_length)) * 100)
+        current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_UPLOADING', 'percent': percent})   # type: ignore[attr-defined]
 
-        elif stage == Firmware.STAGE_DONE:
-            self.completed = True
-            current_app.logger.info("Firmware upload complete!")
-            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_DONE'})
+    def _handle_stage_done(self):
+        self.completed = True
+        self.logger.info("Firmware upload complete!")
+        current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_DONE'})   # type: ignore[attr-defined]
 
-        elif stage == Firmware.STAGE_ERROR:
-            current_app.logger.error(f"Error: {kwargs.get('error', '')}")
-            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_ERROR', 'error': kwargs.get('error', '')})
+    def _handle_stage_error(self, kwargs):
+        error_msg = kwargs.get('error', '')
+        self.logger.error(f"Error: {error_msg}")
+        current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_ERROR', 'error': error_msg})   # type: ignore[attr-defined]
 
-        elif stage == Firmware.STAGE_DEBUG:
-            current_app.logger.debug(f"DEBUG: {kwargs.get('data', '')}")
+    def _handle_stage_debug(self, kwargs):
+        debug_data = kwargs.get('data', '')
+        self.logger.debug(f"DEBUG: {debug_data}")
+

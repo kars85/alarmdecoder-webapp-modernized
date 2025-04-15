@@ -112,8 +112,9 @@ class User(db.Model, UserMixin):
         self._password = generate_password_hash(password)
     # Hide password encryption by exposing password field only.
     password = db.synonym('_password',
-                          descriptor=property(_get_password,
-                                              _set_password))
+                          descriptor=property(
+                              lambda self: self._get_password(),
+                              lambda self, value: self._set_password(value)))
 
     def check_password(self, password):
         User, USER_ROLE, USER_STATUS, ADMIN = get_user_related_constants()

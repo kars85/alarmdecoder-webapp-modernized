@@ -36,8 +36,8 @@ def profile(user_id):
 
 @user.route('/<int:user_id>/avatar/<path:filename>')
 @login_required
-def avatar(user_id, filename):
-    dir_path = os.path.join(APP.config['UPLOAD_FOLDER'], 'user_%s' % user_id)
+def avatar(user_id: int, filename: str):
+    dir_path = os.path.join(APP.config['UPLOAD_FOLDER'], f"user_{user_id}")
     return send_from_directory(dir_path, filename, as_attachment=True)
 
 @user.route('/<int:user_id>/history')

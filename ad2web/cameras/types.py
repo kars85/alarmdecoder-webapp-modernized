@@ -10,6 +10,9 @@ try:
     from urllib.request import urlopen  # Python 3
     hascv2 = True
 except ImportError:
+    import cv2
+    import numpy as np
+    from urllib.request import urlopen
     hascv2 = False
 
 from .models import Camera

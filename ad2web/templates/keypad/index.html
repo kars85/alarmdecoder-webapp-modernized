@@ -1,0 +1,172 @@
+﻿{% from "macros/_form.html" import render_form %}
+{% set page_title = 'Keypad' %}
+{% extends "layouts/base.html" %}
+{% block permanent_css %}>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.toggle.min.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/main_responsive.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/user_custom.css') }}">
+{% endblock %}
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/jquery-confirm.min.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/responsive_keypad.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smoothness/jquery-ui-1.10.4.custom.css') }}">
+{% endblock %}
+{% block pagejs %}
+{% include 'js/keypad/dsc_keypad.js' %}
+    {% include 'js/keypad/ademco_keypad.js' %}
+{% endblock %}
+{% block container %}
+<div class="container" style="-webkit-user-select: none; user-select: none; -moz-user-select: none;">
+    <div class="row no-gutter" id="status-row">
+        <div class="col-12 col-sm-12 text-center">
+            <div id="keypad-line1">Please Wait</div>
+        </div>
+        <div class="col-12 col-sm-12 text-center">
+            <div id="keypad-line2">Loading...</div>
+        </div>
+        <div class="col-12 col-sm-12 text-center">
+            <hr>
+            <div id="status-indicator">
+                <div class="row some-gutter">
+                    <div class="col-sm-4 col-4">Armed:
+                        <img id="status-image1" src="{{ url_for('static', filename='img/led-off.png') }}"/>
+                    </div>
+                    <div class="col-sm-4 col-4">Ready:
+                        <img id="status-image2" src="{{ url_for('static', filename='img/led-off.png') }}"/>
+                    </div>
+                    <div class="col-sm-4 col-4">Chime:
+                        <img id="chime-image1" src="{{ url_for('static', filename='img/chime.png') }}" width="40px" height="30px" alt="chime enabled"/>
+                    </div>
+                </div>
+            </div>
+            <!-- /#status-indicator -->
+        </div>
+    </div>
+    <!-- /#status-row -->
+    <div class="row no-gutter" id="keypad-row" style="-webkit-user-select: none; user-select: none; -moz-user-select: none;">
+        <div class="col-12 col-sm-12">
+            <hr>
+            <div id="keypad-buttons">
+                <table class="table table-nonfluid borderless" id="buttons-table">
+                    <tbody>
+                        <tr id="keypad-row1">
+                            <td id="direction-buttons">
+                                <div style="float: left; width:50%;">
+                                    <img id="button-left" class="keypad-button arrow-button"/>
+                                </div>
+                                <div style="float: right; width:50%;">
+                                    <img id="button-right" class="keypad-button arrow-button"/>
+                                </div>
+                            </td>
+                            <td>
+                                <img id="button-1" class="keypad-button"/>
+                            </td>
+                            <td>
+                                <img id="button-2" class="keypad-button"/>
+                            </td>
+                            <td>
+                                <img id="button-3" class="keypad-button"/>
+                            </td>
+                        </tr>
+                        <tr id="keypad-row2">
+                            <td>
+                                <img id="button-F1" class="keypad-button"/>
+                            </td>
+                            <td>
+                                <img id="button-4" class="keypad-button"/>
+                            </td>
+                            <td>
+                                <img id="button-5" class="keypad-button"/>
+                            </td>
+                            <td>
+                                <img id="button-6" class="keypad-button"/>
+                            </td>
+                        </tr>
+                        <tr id="keypad-row3">
+                            <td>
+                                <img id="button-F2" class="keypad-button"/>
+                            </td>
+                            <td>
+                                <img id="button-7" class="keypad-button"/>
+                            </td>
+                            <td>
+                                <img id="button-8" class="keypad-button"/>
+                            </td>
+                            <td>
+                                <img id="button-9" class="keypad-button"/>
+                            </td>
+                        </tr>
+                        <tr id="keypad-row4">
+                            <td>
+                                <img id="button-F3" class="keypad-button"/>
+                            </td>
+                            <td>
+                                <img id="button-star" class="keypad-button"/>
+                            </td>
+                            <td>
+                                <img id="button-0" class="keypad-button"/>
+                            </td>
+                            <td>
+                                <img id="button-pound" class="keypad-button"/>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <!-- /#keypad-buttons -->
+        </div>
+    </div>
+    <!-- /#keypad-row -->     <br/>
+</div>
+<!-- /container -->
+{% if buttons %}
+<div id="dialog" style="display: none;" title="Custom Buttons">
+    {% for button in buttons%}
+    <input id="custom_{{button.button_id}}" class="custom_button btn half_keypad-button" type="button" value="{{button.label}}"/>
+    {% endfor%}
+</div>
+{% endif %}
+<div class="container" id="controls-container">
+    <div class="row" id="controls-row">
+        <div class="col-4 col-sm-4 col-md-4 col-lg-4"> <span class="float-end"><button class="btn half_keypad-button" id="special_buttons" name="special_buttons" style="text-align: center;">Special</button></span>
+        </div>
+        {% if buttons %}
+        <div class="col-4 col-sm-4 col-md-4 col-lg-4"> <span class="float-start"><button class="btn half_keypad-button" id="custom_buttons" name="custom_buttons">Custom</button></span>
+        </div>
+        {% else %}
+        <div class="col-4 col-sm-4 col-md-4 col-lg-4"></div>
+        {% endif %}
+        <div class="col-4 col-sm-4 col-md-4 col-lg-4"> <span class="float-start"><div class="d-none d-sm-block">Sounds: </div><input type="checkbox" name="check-mute" data-size="small" id="check-mute"/><div class="d-sm-none d-md-block d-md-none d-lg-block d-lg-none d-xl-block">Sounds</div></span>
+        </div>
+    </div>
+    <!-- /#controls-row -->
+</div>
+<!-- /#controls-container -->
+<div id="special-dialog" style="display: none;" title="Special Buttons">
+    <table>
+        <tbody>
+            <tr>
+                <td>
+                    <img id="button-stay" class="keypad-button"/>
+                </td>
+                <td>
+                    <img id="button-away" class="keypad-button"/>
+                </td>
+                <td>
+                    <img id="button-chime" class="keypad-button"/>
+                </td>
+                <td>
+                    <img id="button-reset" class="keypad-button"/>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+{% block js_btm %}
+<script src="{{ url_for('static', filename='js/vendor/jquery-ui-1.10.4.custom.js') }}"></script> 
+<script src="{{ url_for('static', filename='js/vendor/jquery-confirm.min.js') }}"></script> 
+<script src="{{ url_for('static', filename='js/vendor/bootstrap-toggle.min.js') }}"></script>
+{% endblock %}
+
+

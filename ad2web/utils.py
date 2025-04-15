@@ -10,13 +10,14 @@ import io
 import tarfile
 import time
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 # Instance folder path, make it independent.
 INSTANCE_FOLDER_PATH = os.path.join('/opt', 'alarmdecoder-webapp', 'instance')
 LOG_FOLDER = os.path.join(INSTANCE_FOLDER_PATH, 'logs')
-ALLOWED_AVATAR_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
+ALLOWED_AVATAR_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
 
 # Form validation
 
@@ -50,7 +51,7 @@ STRING_LEN = 64
 
 
 def get_current_time():
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 
 def pretty_date(dt, default=None):
@@ -63,14 +64,14 @@ def pretty_date(dt, default=None):
     if default is None:
         default = 'just now'
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     diff = now - dt
 
     periods = (
         (diff.days // 365, 'year', 'years'),
         (diff.days // 30, 'month', 'months'),
         (diff.days // 7, 'week', 'weeks'),
-        (diff.days, 'day', 'days'),
+        (diff.days,  'day', 'days'),
         (diff.seconds // 3600, 'hour', 'hours'),
         (diff.seconds // 60, 'minute', 'minutes'),
         (diff.seconds, 'second', 'seconds'),
@@ -94,7 +95,7 @@ def allowed_file(filename):
 
 def id_generator(size=10, chars=string.ascii_letters + string.digits):
     #return base64.urlsafe_b64encode(os.urandom(size))
-    return ''.join(random.choice(chars) for x in range(size))
+    return ''.join(random.choice(chars) for _ in range(size))
 
 
 def make_dir(dir_path):
@@ -107,7 +108,7 @@ def make_dir(dir_path):
 
 def tar_add_directory(tar, name):
     ti = tarfile.TarInfo(name=name)
-    ti.mtime = time.time()
+    ti.mtime = int(time.time())
     ti.type = tarfile.DIRTYPE
     ti.mode = 0o755
     tar.addfile(ti)
@@ -119,11 +120,13 @@ def tar_add_textfile(tar, name, data, parent_path=None):
         path = os.path.join(parent_path, name)
 
     ti = tarfile.TarInfo(name=path)
-    ti.mtime = time.time()
+    ti.mtime = int(time.time())
     ti.size = len(data)
 
-    # Wrap the bytes in a TextIOWrapper for ascii encoding.
-    tar.addfile(ti, io.TextIOWrapper(buffer=io.BytesIO(data), encoding='ascii'))
+    if isinstance(data, str):
+        data = data.encode('ascii')  # ensure bytes
+
+    tar.addfile(ti, io.BytesIO(data))
 
 
 # Wrappers to support older versions of Flask-Login alongside newer ones

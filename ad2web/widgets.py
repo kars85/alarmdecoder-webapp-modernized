@@ -9,6 +9,8 @@ class ButtonWidget(object):
     def __init__(self, text='', onclick='', **kwargs):
         self.text = text
         self.onclick = onclick
+        self.extra_attrs = kwargs
+
 
     def __call__(self, field, **kwargs):
         kwargs.setdefault('id', field.id)
@@ -22,9 +24,10 @@ class ButtonWidget(object):
 class ButtonField(Field):
     widget = ButtonWidget()
 
-    def __init__( self, label='', validators=None, onclick='', **kwargs):
-        super(ButtonField, self).__init__('', validators, **kwargs)
+    def __init__(self, label='', validators=None, onclick='', **kwargs):
+        super().__init__(label, validators, **kwargs)
         self.widget = ButtonWidget(text=label, onclick=onclick)
+
 
 
 class MultiCheckboxField(SelectMultipleField):

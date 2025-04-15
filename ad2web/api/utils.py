@@ -4,4 +4,6 @@ import os
 import base64
 
 def generate_api_key():
-    return base64.b32encode(os.urandom(7)).rstrip('==')
+    return base64.b32encode(os.urandom(7)).decode('utf-8').rstrip('=')  # type: ignore[arg-type]
+
+

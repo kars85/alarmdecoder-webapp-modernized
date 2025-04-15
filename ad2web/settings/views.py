@@ -954,8 +954,7 @@ def configure_updater():
 
         version_checker_disable = Setting.get_by_name('version_checker_disable')
         version_checker_disable.value = disable
-        current_app.decoder._version_thread.setTimeout(timeout)    # type: ignore[attr-defined]  # noqa: E1101
-        current_app.decoder._version_thread.setDisable(disable)    # type: ignore[attr-defined]  # noqa: E1101
+        current_app.decoder.configure_version_thread(timeout, disable)
         db.session.add(version_checker_disable)
         db.session.add(version_checker_timeout)
 

@@ -41,7 +41,7 @@ from .notifications.constants import (ARM, DISARM, POWER_CHANGED, ALARM, ALARM_R
                                       ZONE_RESTORE, LOW_BATTERY, PANIC,
                                       READY, CHIME, DEFAULT_EVENT_MESSAGES, EVMSG_VERSION,
                                       RFX, EXP, AUI)
-from .cameras import CameraSystem
+from .cameras.types import CameraSystem
 # from .cameras.models import Camera # Import only if used directly in this file
 from .discovery import DiscoveryServer
 from .upnp import UPNPThread
@@ -224,7 +224,7 @@ class Decoder(object):
             secret_key = Setting.get_by_name('secret_key').value
             if not secret_key:
                 self.logger.info("Generating new Flask secret key.")
-                secret_key = binascii.hexlify(os.urandom(24)).decode('utf-8')
+                secret_key = binascii.hexlify(os.urandom(24)).decode('utf-8')   # type: ignore[arg-type]
                 sk_setting = db.session.merge(Setting(name='secret_key', value=secret_key))
                 # db.session.add(sk_setting) # merge handles add
                 db.session.commit()
@@ -550,6 +550,12 @@ class Decoder(object):
          except Exception as e:
               self.logger.error(f"Error emitting socket event '{event_name}': {e}", exc_info=True)
 
+    def configure_version_thread(self, timeout: int, disable: bool):
+        if self._version_thread:
+            self._version_thread.setTimeout(timeout)
+            self._version_thread.setDisable(disable)
+        else:
+            self.logger.warning("Version thread not initialized. Cannot configure.")
 
     # --- REMOVED OLD BROADCAST METHODS ---
     # def broadcast(self, channel, data={}): ... REMOVED ...
@@ -692,7 +698,8 @@ class VersionChecker(threading.Thread):
             # Sleep regardless of whether check was performed or disabled
             # Use a shorter internal sleep and check time logic above
             # This makes stop() more responsive
-            sleep_duration = min(self.TIMEOUT, max(1, self.version_checker_timeout / 10.0))
+            timeout_div = int(self.version_checker_timeout / 10.0)
+            sleep_duration = min(self.TIMEOUT, max(1, timeout_div))
             time.sleep(sleep_duration)
 
         self.logger.info("VersionChecker thread stopped.")
