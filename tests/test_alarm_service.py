@@ -53,3 +53,31 @@ def test_send_panel_command_missing_send(app, caplog):
             alarm_service.send_panel_command("1234")
             assert "no send method" in caplog.text.lower()
 
+def test_send_panel_command_raises_exception(app, caplog):
+    decoder = MagicMock()
+    decoder.device = MagicMock()
+    decoder.device.send.side_effect = RuntimeError("boom")
+
+    with app.app_context():
+        with patch("ad2web.services.alarm_service.get_decoder", return_value=decoder):
+            alarm_service.send_panel_command("9999")
+
+    assert "failed to send command" in caplog.text.lower()
+
+from ad2web.services.alarm_service import MockDevice
+
+def test_mock_device_full_init_and_fileno():
+    device = MockDevice()
+    assert device.is_open is True
+    assert device.fileno() == -1
+    assert device.write_buffer == []
+    assert device.read_buffer == []
+
+def test_mock_device_open_close_behavior():
+    device = MockDevice()
+    device.is_open = False
+    device.open()
+    assert device.is_open is True
+    device.close()
+    assert device.is_open is False
+
