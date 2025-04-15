@@ -15,17 +15,22 @@ target-version = ['py311']
 exclude = 'migrations'
 
 [tool.ruff]
-# Maximum allowed line length for your code
 line-length = 88
+target-version = "py311"
 
-# Specify the Python version you're targeting (optional but recommended)
-target-version = "py39"  # Replace with "py38", "py310", etc. as needed
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90"]
+ignore = ["E501"]
 
-# Error and warning codes you want Ruff to check
-# For example: “E” for pycodestyle errors, “F” for pyflakes issues, “W” for warnings, etc.
-# See Ruff’s documentation for complete code references.
-lint.select = ["E", "F", "W", "C90"]
+[tool.coverage.run]
+branch = true
+source = ["ad2web"]
 
-# Codes to ignore. If, for example, you dislike E501 ("line too long"), you can ignore it.
-lint.ignore = ["E501"]
-
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "@abc.abstractmethod",
+]

@@ -13,3 +13,9 @@ services:
     volumes:
       - .:/app
     restart: unless-stopped
+
+  test:
+    build: .
+    command: pytest --maxfail=1 --disable-warnings
+    depends_on:
+      - alarmdecoder-webapp

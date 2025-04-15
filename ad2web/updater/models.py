@@ -3,7 +3,14 @@ import logging
 import json
 from urllib.request import urlopen
 from typing import Tuple
-import sh
+import platform
+try:
+    if platform.system() != "Windows":
+        import sh
+    else:
+        sh = None  # Avoid crashing on Windows
+except ImportError:
+    sh = None
 import sqlalchemy.exc
 from sqlalchemy import create_engine
 from alembic import command
@@ -249,22 +256,22 @@ class SourceUpdater(object):
     """
 
     def __init__(self, name, project_url='', path=None):
-        """
-        Constructor
-
-        :param name: Name of the component
-        :type name: string
-        """
-
         self._path = None
+        self._git = None
+
         try:
+            if sh is None:
+                raise RuntimeError("Shell (sh) is not available on this platform.")
+
             if path is not None:
                 self._git = sh.git.bake(work_tree=path, git_dir=os.path.join(path, '.git'))
                 self._path = path
             else:
                 self._git = sh.git
 
-        except sh.CommandNotFound:
+        except Exception as e:
+            # Log a warning instead of crashing
+            print(f"[Updater] Git not available or failed to initialize: {e}")
             self._git = None
 
         self.name = name

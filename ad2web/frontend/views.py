@@ -2,13 +2,12 @@
 from markupsafe import Markup
 from flask import Blueprint
 from flask_wtf import FlaskForm as Form
-from wtforms import (ValidationError, HiddenField, BooleanField, StringField,
+from wtforms import (HiddenField, BooleanField, StringField,
         PasswordField, SubmitField)
 from wtforms.validators import DataRequired, Length, EqualTo, Email
 from wtforms.fields import EmailField
-from ..user import User
-from ..utils import (PASSWORD_LEN_MIN, PASSWORD_LEN_MAX,
-        USERNAME_LEN_MIN, USERNAME_LEN_MAX)
+from .forms import BaseUserForm
+from ..utils import PASSWORD_LEN_MIN, PASSWORD_LEN_MAX
 
 frontend = Blueprint('frontend', __name__)
 
@@ -21,25 +20,12 @@ class LoginForm(Form):
     submit = SubmitField('Sign in')
 
 
-class SignupForm(Form):
+class SignupForm(BaseUserForm):
     next = HiddenField()
-    email = EmailField(u'Email', [DataRequired(), Email()],
-            description=u"What's your email address?")
-    password = PasswordField(u'Password', [DataRequired(), Length(PASSWORD_LEN_MIN, PASSWORD_LEN_MAX)],
-            description=u'%s characters or more! Be tricky.' % PASSWORD_LEN_MIN)
-    name = StringField(u'Choose your username', [DataRequired(), Length(USERNAME_LEN_MIN, USERNAME_LEN_MAX)],
-            description=u"Don't worry. you can change it later.")
     agree = BooleanField(u'Agree to the ' +
-        Markup('<a target="_blank" rel="noopener noreferrer" href="/terms">Terms of Service</a>'), [DataRequired()])
+                         Markup('<a target="_blank" rel="noopener noreferrer" href="/terms">Terms of Service</a>'),
+                         [DataRequired()])
     submit = SubmitField('Sign up')
-
-    def validate_name(self, field):
-        if User.query.filter_by(name=field.data).first() is not None:
-            raise ValidationError(u'This username is taken')
-
-    def validate_email(self, field):
-        if User.query.filter_by(email=field.data).first() is not None:
-            raise ValidationError(u'This email is taken')
 
 
 class RecoverPasswordForm(Form):
@@ -65,24 +51,11 @@ class OpenIDForm(Form):
     submit = SubmitField(u'Log in with OpenID')
 
 
-class CreateProfileForm(Form):
+class CreateProfileForm(BaseUserForm):
     openid = HiddenField()
-    name = StringField(u'Choose your username', [DataRequired(), Length(USERNAME_LEN_MIN, USERNAME_LEN_MAX)],
-            description=u"Don't worry. you can change it later.")
-    email = EmailField(u'Email', [DataRequired(), Email()], description=u"What's your email address?")
-    password = PasswordField(u'Password', [DataRequired(), Length(PASSWORD_LEN_MIN, PASSWORD_LEN_MAX)],
-            description=u'%s characters or more! Be tricky.' % PASSWORD_LEN_MIN)
     submit = SubmitField(u'Create Profile')
 
-    def validate_name(self, field):
-        if User.query.filter_by(name=field.data).first() is not None:
-            raise ValidationError(u'This username is taken.')
-
-    def validate_email(self, field):
-        if User.query.filter_by(email=field.data).first() is not None:
-            raise ValidationError(u'This email is taken.')
 
 class LicenseAgreementForm(Form):
     agree = BooleanField(u'I agree to the license agreement', [DataRequired()], default=False)
-
     submit = SubmitField(u'Save')

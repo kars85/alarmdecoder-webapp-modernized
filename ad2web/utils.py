@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 
 # Instance folder path, make it independent.
-INSTANCE_FOLDER_PATH = os.path.join('/opt', 'alarmdecoder-webapp', 'instance')
+INSTANCE_FOLDER_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'instance'))
 LOG_FOLDER = os.path.join(INSTANCE_FOLDER_PATH, 'logs')
 ALLOWED_AVATAR_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 

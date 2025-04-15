@@ -28,7 +28,7 @@ from .updater.views import updater
 from .user import user
 from .settings import settings
 from .frontend import frontend
-from ad2web.api import api, api_settings
+from ad2web.api import api
 from .admin import admin
 from .certificate import certificate
 from .log import log
@@ -50,7 +50,6 @@ DEFAULT_BLUEPRINTS = (
     user,
     settings,
     api,
-    api_settings,
     admin,
     certificate,
     log,
@@ -128,7 +127,7 @@ def create_app(config=None, app_name=None, blueprints=None):
     register_commands(flask_app)
 
     appsocket = create_decoder_socket(flask_app)
-    decoder = Decoder(flask_app, appsocket)
+    decoder = Decoder(flask_app)
     flask_app.decoder = decoder
 
     return flask_app, socketio
@@ -163,7 +162,10 @@ def configure_app(app, config=None):
     app.config.from_pyfile('production.cfg', silent=True)
 
     if config:
-        app.config.from_object(config)
+        if isinstance(config, dict):
+            app.config.update(config)
+        else:
+            app.config.from_object(config)
 
     app.config.setdefault('LOG_FOLDER', os.path.join(app.instance_path, 'logs'))
     app.config.setdefault('UPLOAD_FOLDER', os.path.join(app.instance_path, 'uploads'))

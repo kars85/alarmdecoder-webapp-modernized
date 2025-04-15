@@ -1,11 +1,14 @@
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509 import CertificateRevocationListBuilder, RevokedCertificateBuilder, Name, NameAttribute
 from cryptography.x509.oid import NameOID
-
+import time
 import os
+import io
+import tarfile
 from datetime import datetime, timezone, timedelta
 from flask import current_app
 from sqlalchemy import Column, Integer, SmallInteger, String, Text, TIMESTAMP, ForeignKey
@@ -13,7 +16,7 @@ from sqlalchemy.orm import reconstructor
 
 from ad2web.extensions import db
 from ad2web.settings.models import Setting
-from ad2web.certificate.constants import CA, REVOKED
+from ad2web.certificate.constants import CA, REVOKED, TGZ, PKCS12
 
 class Certificate(db.Model):
     __tablename__ = 'certificates'
@@ -183,3 +186,62 @@ class CertificateManager:
             current_app.logger.info(f"CRL saved successfully to {path}")
         except Exception as e:
             current_app.logger.error(f"Failed to export CRL: {e}")
+
+
+
+class CertificatePackage:
+    def __init__(self, cert, ca):
+        self.cert = cert
+        self.ca = ca
+
+    def create(self, package_type):
+        if package_type == TGZ:
+            return self._create_tgz()
+        elif package_type == PKCS12:
+            return self._create_pkcs12()
+        else:
+            raise ValueError("Unsupported package type")
+
+    def _create_tgz(self):
+        mime_type = 'application/x-gzip'
+        filename = f'{self.cert.name}.tar.gz'
+        fileobj = io.BytesIO()
+
+        with tarfile.open(name=filename, mode='w:gz', fileobj=fileobj) as tar:
+            dir_name = self.cert.name
+            tarinfo = tarfile.TarInfo(name=dir_name)
+            tarinfo.type = tarfile.DIRTYPE
+            tarinfo.mode = 0o755
+            tarinfo.mtime = int(time.time())
+            tar.addfile(tarinfo)
+
+            tarinfo, data_stream = self._textfile_tarinfo(f'{dir_name}/ca.pem', self.ca.certificate)
+            tar.addfile(tarinfo, data_stream)
+            tarinfo, data_stream = self._textfile_tarinfo(f'{dir_name}/{self.cert.name}.pem', self.cert.certificate)
+            tar.addfile(tarinfo, data_stream)
+            if self.cert.key:
+                tarinfo, data_stream = self._textfile_tarinfo(f'{dir_name}/{self.cert.name}.key', self.cert.key)
+                tar.addfile(tarinfo, data_stream)
+
+        return mime_type, filename, fileobj.getvalue()
+
+    def _create_pkcs12(self):
+        mime_type = 'application/x-pkcs12'
+        filename = f'{self.cert.name}.p12'
+
+        p12 = serialization.pkcs12.serialize_key_and_certificates(
+            name=bytes(self.cert.name, 'utf-8'),
+            key=self.cert.key_obj,
+            cert=self.cert.certificate_obj,
+            cas=[self.ca.certificate_obj],
+            encryption_algorithm=serialization.BestAvailableEncryption(b'changeit')
+        )
+
+        return mime_type, filename, p12
+    @staticmethod
+    def _textfile_tarinfo(path, data):
+        data_bytes = data.encode('utf-8')
+        tarinfo = tarfile.TarInfo(name=path)
+        tarinfo.size = len(data_bytes)
+        tarinfo.mtime = int(time.time())
+        return tarinfo, io.BytesIO(data_bytes)

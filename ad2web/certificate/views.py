@@ -23,6 +23,7 @@ from .constants import (
     INTERNAL,
 )
 from .models import Certificate, CertificatePackage
+
 from .forms import GenerateCertificateForm
 from ..settings.models import Setting
 from ..ser2sock import ser2sock
@@ -174,7 +175,7 @@ def revoke(certificate_id):
 @certificate.route("/generateCA")
 @login_required
 @admin_required
-def generateCA():
+def generateca():
     use_ssl = Setting.get_by_name("use_ssl", default=False).value
     if not use_ssl:
         abort(404)
@@ -225,7 +226,7 @@ def generateCA():
 @certificate.route("/revokeCA")
 @login_required
 @admin_required
-def revokeCA():
+def revokeca():
     use_ssl = Setting.get_by_name("use_ssl", default=False).value
     if not use_ssl:
         abort(404)

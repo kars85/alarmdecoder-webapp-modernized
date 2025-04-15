@@ -34,7 +34,8 @@ from ad2web.keypad.constants import ( # Renamed 'ad2web.keypad' to relative '.'
 
 # Defined blueprint - assuming this is keypad, not api
 keypad = Blueprint("keypad", __name__, url_prefix="/keypad")
-# Removed api and api_settings blueprints as they don't seem related to this file's content
+api = Blueprint('api', __name__)
+
 
 # Helper function to get panel mode consistently
 def _get_panel_mode():

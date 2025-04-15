@@ -101,7 +101,7 @@ class Decoder(object):
         self.logger = app.logger # Use app's logger
         # self.websocket = websocket # REMOVED
         self.device = None # The underlying alarmdecoder.AlarmDecoder instance
-        self.updater = Updater()
+        self.updater = None
         self.updates = {}
         self.version = ''
         self.firmware_file = None
@@ -201,7 +201,10 @@ class Decoder(object):
         and triggers a device open if configured. Should be called after
         Flask app is configured.
         """
+
         with self.app.app_context():
+
+
             # Ensure essential folders exist (moved from factory)
             try:
                  # Ensure these keys exist in config or provide defaults
@@ -211,6 +214,8 @@ class Decoder(object):
                  os.makedirs(log_folder, exist_ok=True)
                  os.makedirs(upload_folder, exist_ok=True)
                  os.makedirs(openid_folder, exist_ok=True)
+                 if self.updater is None:
+                     self.updater = Updater()
             except OSError as e:
                  self.logger.error(f"Error creating essential folders: {e}")
 
@@ -893,7 +898,7 @@ class ExportChecker(threading.Thread):
 
 # --- Flask-SocketIO Namespace ---
 # Register the namespace with the global socketio instance
-@socketio.on_namespace # Use this decorator if class name matches default namespace in URL
+
 class DecoderNamespace(Namespace):
     """
     Socket.IO namespace for handling communication with clients using Flask-SocketIO.

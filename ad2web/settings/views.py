@@ -508,12 +508,11 @@ def _get_cpu_temperature():
         return 'not supported'
 
 @settings.route('/configure_exports', methods=['GET', 'POST'])
-@login_required
-@admin_required
-@settings.route('/exports', methods=['GET', 'POST'])
+@settings.route('/exports', endpoint='settings_exports_alt', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def configure_exports():
+
     form = ExportConfigureForm()
 
     def update_setting(name: str, value: Any):

@@ -1,5 +1,7 @@
 # AlarmDecoder WebApp (Refactored)
 
+[![Test Status](https://github.com/kars85/alarmdecoder-webapp-modernized/actions/workflows/python-app.yml/badge.svg)](https://github.com/kars85/alarmdecoder-webapp-modernized/actions/workflows/python-app.yml)
+[![Coverage Status](https://coveralls.io/repos/github/kars85/alarmdecoder-webapp-modernized/badge.svg?branch=dev)](https://coveralls.io/github/kars85/alarmdecoder-webapp-modernized?branch=dev)
 This is a Python 3.11+ modernization of the AlarmDecoder WebApp.
 
 ## What's New

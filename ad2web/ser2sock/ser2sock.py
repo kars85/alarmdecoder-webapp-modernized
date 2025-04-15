@@ -2,8 +2,15 @@ import os
 import psutil
 import signal
 from configparser import ConfigParser, DuplicateSectionError
-import sh
-from shutilwhich import which
+import platform
+
+if platform.system() != "Windows":
+    import sh
+else:
+    sh = None  # or define a mock if needed
+
+from shutil import which
+
 from collections import OrderedDict
 
 
