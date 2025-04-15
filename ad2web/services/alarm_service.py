@@ -3,10 +3,8 @@
 from alarmdecoder.decoder import AlarmDecoder
 from alarmdecoder.devices.base_device import Device
 
+
 class MockDevice(Device):
-    """
-    A mock device for testing AlarmDecoder without real hardware or sockets.
-    """
 
     def __init__(self):
         super().__init__()
@@ -37,6 +35,7 @@ class MockDevice(Device):
     def fileno(self):
         return -1  # Mocked value for compatibility
 
+
 def setup_alarmdecoder(app):
     """
     Initializes the AlarmDecoder using a mock device and attaches it to the app context.
@@ -44,3 +43,29 @@ def setup_alarmdecoder(app):
     device = MockDevice()
     decoder = AlarmDecoder(device=device)
     app.decoder = decoder
+
+def get_decoder():
+    from flask import current_app
+    return getattr(current_app, "decoder", None)
+
+def send_panel_command(cmd: str):
+    """
+    Sends a raw command to the panel via the AlarmDecoder.
+    """
+    from flask import current_app
+
+    decoder = get_decoder()
+    if not decoder or not decoder.device:
+        current_app.logger.warning("No device available to send command.")
+        return
+
+    if not hasattr(decoder.device, "send"):
+        current_app.logger.warning("Device has no send method.")
+        return
+
+    try:
+        decoder.device.send(str(cmd) + "\r")
+    except Exception as e:
+        current_app.logger.error(f"Failed to send command: {e}")
+
+
