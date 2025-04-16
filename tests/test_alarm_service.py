@@ -81,3 +81,23 @@ def test_mock_device_open_close_behavior():
     device.close()
     assert device.is_open is False
 
+def test_get_decoder_returns_decoder(app):
+    mock_decoder = MagicMock()
+    with app.app_context():
+        from flask import current_app
+        current_app.decoder = mock_decoder
+        assert alarm_service.get_decoder() is mock_decoder
+
+def test_get_decoder_returns_none_when_missing(app):
+    with app.app_context():
+        from flask import current_app
+        if hasattr(current_app, "decoder"):
+            delattr(current_app, "decoder")
+        assert alarm_service.get_decoder() is None
+
+def test_mock_device_inject_encodes_properly():
+    device = MockDevice()
+    device.inject("hello")
+    assert device.read_buffer == [b"hello"]
+
+

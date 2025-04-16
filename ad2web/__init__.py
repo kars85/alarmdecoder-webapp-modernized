@@ -1,3 +1,4 @@
+#ad2web/__init__.py
 # Make sure ALL constants used below are imported or defined
 # It looks like UPLOAD_FOLDER and OPENID_FS_STORE_PATH might be missing?
 # Assuming they are also in utils for this example:

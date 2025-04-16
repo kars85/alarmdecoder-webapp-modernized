@@ -2,4 +2,4 @@
 from flask import Blueprint
 from . import routes  # noqa: F401
 
-main = Blueprint('main', __name__)
+frontend = Blueprint('frontend', __name__)

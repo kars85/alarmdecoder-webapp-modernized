@@ -129,15 +129,12 @@ def tar_add_textfile(tar, name, data, parent_path=None):
     tar.addfile(ti, io.BytesIO(data))
 
 
-# Wrappers to support older versions of Flask-Login alongside newer ones
 def user_is_authenticated(user):
     if user is None:
         return False
 
-    if callable(user.is_authenticated):
-        return user.is_authenticated()
-    else:
-        return user.is_authenticated
+    is_auth = getattr(user, "is_authenticated", False)
+    return is_auth() if callable(is_auth) else is_auth
 
 
 def user_is_anonymous(user):

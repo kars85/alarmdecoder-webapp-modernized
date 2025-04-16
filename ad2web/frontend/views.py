@@ -1,61 +1,106 @@
 # -*- coding: utf-8 -*-
-from markupsafe import Markup
-from flask import Blueprint
-from flask_wtf import FlaskForm as Form
-from wtforms import (HiddenField, BooleanField, StringField,
-        PasswordField, SubmitField)
-from wtforms.validators import DataRequired, Length, EqualTo, Email
+"""
+ad2web.frontend.views
+~~~~~~~~~~~~~~~~~~~~~
+
+Frontend views for login, signup, index, etc.
+"""
+
+from flask import Blueprint, render_template, redirect, url_for, request, flash
+from flask_login import login_user, logout_user, login_required, current_user
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, SubmitField
 from wtforms.fields import EmailField
-from .forms import BaseUserForm
-from ..utils import PASSWORD_LEN_MIN, PASSWORD_LEN_MAX
+from wtforms.validators import DataRequired, Length, EqualTo, Email
+from ad2web.user.models import User
+from ad2web.extensions import db
 
-frontend = Blueprint('frontend', __name__)
+frontend = Blueprint("frontend", __name__)
 
+# =====================
+# ====== FORMS ========
+# =====================
 
-class LoginForm(Form):
-    next = HiddenField()
-    login = StringField(u'Username or email', [DataRequired()])
-    password = PasswordField('Password', [DataRequired(), Length(PASSWORD_LEN_MIN, PASSWORD_LEN_MAX)])
-    remember = BooleanField('Remember me')
-    submit = SubmitField('Sign in')
-
-
-class SignupForm(BaseUserForm):
-    next = HiddenField()
-    agree = BooleanField(u'Agree to the ' +
-                         Markup('<a target="_blank" rel="noopener noreferrer" href="/terms">Terms of Service</a>'),
-                         [DataRequired()])
-    submit = SubmitField('Sign up')
+class LoginForm(FlaskForm):
+    email = EmailField("Email", validators=[DataRequired(), Email()])
+    password = PasswordField("Password", validators=[DataRequired()])
+    submit = SubmitField("Sign In")
 
 
-class RecoverPasswordForm(Form):
-    email = EmailField(u'Your email', [Email()])
-    submit = SubmitField('Send instructions')
+class SignupForm(FlaskForm):
+    name = StringField("Username", validators=[DataRequired(), Length(3, 64)])
+    email = EmailField("Email", validators=[DataRequired(), Email()])
+    password = PasswordField("Password", validators=[DataRequired(), Length(6, 60)])
+    password_again = PasswordField("Repeat Password", validators=[DataRequired(), EqualTo("password")])
+    submit = SubmitField("Sign Up")
 
 
-class ChangePasswordForm(Form):
-    activation_key = HiddenField()
-    password = PasswordField(u'Password', [DataRequired()])
-    password_again = PasswordField(u'Password again', [EqualTo('password', message="Passwords don't match")])
-    submit = SubmitField('Save')
+class ResetPasswordForm(FlaskForm):
+    email = EmailField("Email", validators=[DataRequired(), Email()])
+    submit = SubmitField("Reset Password")
 
 
-class ReauthForm(Form):
-    next = HiddenField()
-    password = PasswordField(u'Password', [DataRequired(), Length(PASSWORD_LEN_MIN, PASSWORD_LEN_MAX)])
-    submit = SubmitField('Reauthenticate')
+# =====================
+# ====== ROUTES =======
+# =====================
+
+@frontend.route("/")
+def index():
+    return render_template("frontend/index.html")
+
+@frontend.route("/login", methods=["GET", "POST"])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        # Placeholder logic – replace with actual user lookup
+        flash("Logged in successfully.", "success")
+        return redirect(url_for("frontend.index"))
+    return render_template("frontend/login.html", form=form)
 
 
-class OpenIDForm(Form):
-    openid = StringField(u'Your OpenID', [DataRequired()])
-    submit = SubmitField(u'Log in with OpenID')
+@frontend.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    flash("You have been logged out.", "info")
+    return redirect(url_for("frontend.index"))
 
 
-class CreateProfileForm(BaseUserForm):
-    openid = HiddenField()
-    submit = SubmitField(u'Create Profile')
+@frontend.route("/signup", methods=["GET", "POST"])
+def signup():
+    form = SignupForm()
+    if form.validate_on_submit():
+        # Create and persist a new user
+        new_user = User(
+            email=form.email.data,
+            name=form.name.data,
+            password=form.password.data,
+            role="user"
+        )
+        db.session.add(new_user)
+        db.session.commit()
+
+        flash("Account created successfully.", "success")
+        return redirect(url_for("frontend.login"))
+    return render_template("frontend/signup.html", form=form)
 
 
-class LicenseAgreementForm(Form):
-    agree = BooleanField(u'I agree to the license agreement', [DataRequired()], default=False)
-    submit = SubmitField(u'Save')
+
+@frontend.route("/reset_password", methods=["GET", "POST"])
+def reset_password():
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        # Placeholder for password reset logic
+        flash("Password reset instructions sent.", "info")
+        return redirect(url_for("frontend.login"))
+    return render_template("frontend/reset_password.html", form=form)
+
+
+@frontend.route("/help")
+def help():
+    return render_template("frontend/footers/help.html")
+
+@frontend.route("/license")
+def license():
+    return render_template("frontend/license.html")
+

@@ -13,10 +13,11 @@ from .forms import UserForm
 from ..settings import Setting
 
 
-admin = Blueprint("admin", __name__, url_prefix="/settings")
+admin = Blueprint("admin", __name__, url_prefix="/admin")
 
 
-# @admin.route('/')
+
+@admin.route("/")
 @login_required
 @admin_required
 def index():

@@ -1,3 +1,4 @@
+#ad2web/config.py
 import os
 from .utils import INSTANCE_FOLDER_PATH
 

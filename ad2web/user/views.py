@@ -10,7 +10,10 @@ from .models import UserHistory
 
 from ..utils import user_is_authenticated
 
-user = Blueprint('user', __name__, url_prefix='/user')
+from flask import Blueprint
+
+user = Blueprint("user", __name__, template_folder="templates")
+
 
 
 # Function to dynamically import User to avoid circular import
@@ -22,8 +25,6 @@ def get_user():
 @login_required
 def index():
     User = get_user()  # Dynamically import User
-    if not user_is_authenticated(current_user):
-        abort(403)
     return render_template('user/index.html', user=current_user)
 
 
