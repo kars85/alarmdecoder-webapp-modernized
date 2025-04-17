@@ -26,9 +26,14 @@ class TestPrettyDate(TestCase):
 
 
 def create_test_app():
-    app, _ = _create_app()
+    from ad2web.app import DEFAULT_BLUEPRINTS
+    app, _ = _create_app(blueprints=DEFAULT_BLUEPRINTS)
+
     app.config.update({
         "TESTING": True,
         "WTF_CSRF_ENABLED": False,
     })
+
     return app
+
+

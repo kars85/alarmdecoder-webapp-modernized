@@ -4,8 +4,9 @@ from sqlalchemy import Column
 
 from ..extensions import db
 
+
 class EventLogEntry(db.Model):
-    __tablename__ = 'event_log'
+    __tablename__ = "event_log"
 
     id = Column(db.Integer, primary_key=True)
     type = Column(db.SmallInteger, nullable=False)

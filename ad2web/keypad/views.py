@@ -315,9 +315,7 @@ def create_button():
         return redirect(url_for("keypad.custom_index"))
 
     use_ssl = Setting.get_by_name("use_ssl", default=False).value
-    return render_template(
-        "keypad/create.html", form=form, active="keypad", ssl=use_ssl
-    )
+    return render_template("keypad/create.html", form=form, active="keypad", ssl=use_ssl)
 
 
 @keypad.route("/edit/<int:id>", methods=["GET", "POST"])
@@ -336,9 +334,7 @@ def edit_button(id):
         flash("Keypad Button Updated", "success")
 
     use_ssl = Setting.get_by_name("use_ssl", default=False).value
-    return render_template(
-        "keypad/edit.html", form=form, id=id, active="keypad", ssl=use_ssl
-    )
+    return render_template("keypad/edit.html", form=form, id=id, active="keypad", ssl=use_ssl)
 
 
 @keypad.route("/remove/<int:id>", methods=["GET", "POST"])

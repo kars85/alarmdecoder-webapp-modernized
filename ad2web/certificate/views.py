@@ -133,9 +133,7 @@ def download(certificate_id, download_type):
     ca = Certificate.query.filter_by(type=CA).first_or_404()
     package = CertificatePackage(cert, ca)
 
-    mime_type, filename, data = package.create(
-        package_type=PACKAGE_TYPE_LOOKUP[download_type]
-    )
+    mime_type, filename, data = package.create(package_type=PACKAGE_TYPE_LOOKUP[download_type])
 
     return Response(
         data,

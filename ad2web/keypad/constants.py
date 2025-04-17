@@ -18,10 +18,10 @@ SPECIAL_KEY_MAP = {
     POLICE: AlarmDecoder.KEY_F2,
     MEDICAL: AlarmDecoder.KEY_F3,
     SPECIAL_4: AlarmDecoder.KEY_F4,
-#DSC Only
+    # DSC Only
     STAY: AlarmDecoder.KEY_F4,
     AWAY: chr(5) + chr(5) + chr(5),
     CHIME: chr(6) + chr(6) + chr(6),
     RESET: chr(7) + chr(7) + chr(7),
-    EXIT: chr(8) + chr(8) + chr(8)
+    EXIT: chr(8) + chr(8) + chr(8),
 }

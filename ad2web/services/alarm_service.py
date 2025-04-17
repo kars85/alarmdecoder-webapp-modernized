@@ -24,7 +24,7 @@ class MockDevice(Device):
     def readline(self):
         if self.read_buffer:
             return self.read_buffer.pop(0)
-        return b''
+        return b""
 
     def inject(self, data):
         """
@@ -44,9 +44,12 @@ def setup_alarmdecoder(app):
     decoder = AlarmDecoder(device=device)
     app.decoder = decoder
 
+
 def get_decoder():
     from flask import current_app
+
     return getattr(current_app, "decoder", None)
+
 
 def send_panel_command(cmd: str):
     """
@@ -67,5 +70,3 @@ def send_panel_command(cmd: str):
         decoder.device.send(str(cmd) + "\r")
     except Exception as e:
         current_app.logger.error(f"Failed to send command: {e}")
-
-

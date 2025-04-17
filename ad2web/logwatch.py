@@ -28,8 +28,7 @@ class LogWatcher(object):
     lw.loop()
     """
 
-    def __init__(self, folder, callback, extensions=None, tail_lines=0,
-                 sizehint=1048576):
+    def __init__(self, folder, callback, extensions=None, tail_lines=0, sizehint=1048576):
         if extensions is None:
             extensions = ["log"]
         """Arguments:
@@ -112,8 +111,7 @@ class LogWatcher(object):
         """
         ls = os.listdir(self.folder)
         if self.extensions:
-            return [x for x in ls if os.path.splitext(x)[1][1:] \
-                                           in self.extensions]
+            return [x for x in ls if os.path.splitext(x)[1][1:] in self.extensions]
         else:
             return ls
 
@@ -130,18 +128,18 @@ class LogWatcher(object):
           return codecs.open(file, 'r', encoding=locale.getpreferredencoding(),
                              errors='ignore')
         """
-        return open(file_path, 'rb')
+        return open(file_path, "rb")
 
     @classmethod
     def tail(cls, fname, window):
         """Read last N lines from file fname."""
         if window <= 0:
-            raise ValueError(f'invalid window value: {window}')
+            raise ValueError(f"invalid window value: {window}")
         with cls.open(fname) as f:
             bufsize = 1024
             is_text_mode = isinstance(f.read(0), str)  # Detect if open() returned a text file
-            newline = '\n' if is_text_mode else b'\n'
-            data = '' if is_text_mode else b''
+            newline = "\n" if is_text_mode else b"\n"
+            data = "" if is_text_mode else b""
 
             f.seek(0, os.SEEK_END)
             fsize = f.tell()
@@ -154,9 +152,9 @@ class LogWatcher(object):
 
                 # Ensure data types match
                 if not is_text_mode and isinstance(newdata, str):
-                    newdata = newdata.encode('utf-8')
+                    newdata = newdata.encode("utf-8")
                 elif is_text_mode and isinstance(newdata, bytes):
-                    newdata = newdata.decode('utf-8', errors='ignore')
+                    newdata = newdata.decode("utf-8", errors="ignore")
 
                 data = newdata + data
                 if data.count(newline) >= window or seek_pos == 0:
@@ -237,7 +235,7 @@ class LogWatcher(object):
 
     @staticmethod
     def get_file_id(st):
-        if os.name == 'posix':
+        if os.name == "posix":
             return "%xg%x" % (st.st_dev, st.st_ino)
         else:
             return "%f" % st.st_ctime

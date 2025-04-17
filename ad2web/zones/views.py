@@ -5,26 +5,31 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from flask_login import login_required
 
 from ..extensions import db
-#from ..user import User
+
+# from ..user import User
 from ..decorators import admin_required
 from ..settings import Setting
 from .forms import ZoneForm
 from .models import Zone
 
-zones = Blueprint('zones', __name__, url_prefix='/settings/zones')
+zones = Blueprint("zones", __name__, url_prefix="/settings/zones")
 
-@zones.route('/')
+
+@zones.route("/")
 @login_required
 @admin_required
 def index():
     zones = Zone.query.all()
-    panel_mode = Setting.get_by_name('panel_mode').value
+    panel_mode = Setting.get_by_name("panel_mode").value
 
-    use_ssl = Setting.get_by_name('use_ssl', default=False).value
+    use_ssl = Setting.get_by_name("use_ssl", default=False).value
 
-    return render_template('zones/index.html', zones=zones, active="zones", ssl=use_ssl, panel_mode=panel_mode)
+    return render_template(
+        "zones/index.html", zones=zones, active="zones", ssl=use_ssl, panel_mode=panel_mode
+    )
 
-@zones.route('/create', methods=['GET', 'POST'])
+
+@zones.route("/create", methods=["GET", "POST"])
 @login_required
 @admin_required
 def create():
@@ -37,15 +42,16 @@ def create():
         db.session.add(zone)
         db.session.commit()
 
-        flash('Zone created.', 'success')
+        flash("Zone created.", "success")
 
-        return redirect(url_for('zones.index'))
+        return redirect(url_for("zones.index"))
 
-    use_ssl = Setting.get_by_name('use_ssl', default=False).value
+    use_ssl = Setting.get_by_name("use_ssl", default=False).value
 
-    return render_template('zones/create.html', form=form, active="zones", ssl=use_ssl)
+    return render_template("zones/create.html", form=form, active="zones", ssl=use_ssl)
 
-@zones.route('/edit/<int:id>', methods=['GET', 'POST'])
+
+@zones.route("/edit/<int:id>", methods=["GET", "POST"])
 @login_required
 @admin_required
 def edit(id):
@@ -58,13 +64,14 @@ def edit(id):
         db.session.add(zone)
         db.session.commit()
 
-        flash('Zone updated.', 'success')
+        flash("Zone updated.", "success")
 
-    use_ssl = Setting.get_by_name('use_ssl', default=False).value
+    use_ssl = Setting.get_by_name("use_ssl", default=False).value
 
-    return render_template('zones/edit.html', form=form, id=id, active="zones", ssl=use_ssl)
+    return render_template("zones/edit.html", form=form, id=id, active="zones", ssl=use_ssl)
 
-@zones.route('/remove/<int:id>', methods=['GET', 'POST'])
+
+@zones.route("/remove/<int:id>", methods=["GET", "POST"])
 @login_required
 @admin_required
 def remove(id):
@@ -72,11 +79,12 @@ def remove(id):
     db.session.delete(zone)
     db.session.commit()
 
-    flash('Zone deleted.', 'success')
+    flash("Zone deleted.", "success")
 
-    return redirect(url_for('zones.index'))
+    return redirect(url_for("zones.index"))
 
-@zones.route('/import', methods=['GET', 'POST'])
+
+@zones.route("/import", methods=["GET", "POST"])
 @login_required
 @admin_required
 def import_zone():
@@ -90,9 +98,9 @@ def import_zone():
     delete_all_zones()
 
     for d in data:
-        address = d['address']
-        name = d['zone_name']
-        description = d['zone_name'] if d['zone_name'] != '' else 'Generated - No Alpha Found'
+        address = d["address"]
+        name = d["zone_name"]
+        description = d["zone_name"] if d["zone_name"] != "" else "Generated - No Alpha Found"
 
         if not zone_exists_in_db(address):
             zone = Zone()
@@ -102,7 +110,7 @@ def import_zone():
             zone.description = description
 
             db.session.add(zone)
-            z = { 'zone_id': address, 'name': name, 'description': description }
+            z = {"zone_id": address, "name": name, "description": description}
             zones[address] = z
             numZones = numZones + 1
 
@@ -114,6 +122,7 @@ def import_zone():
 
     return jsonify(success=zones)
 
+
 def zone_exists_in_db(id):
     zone = Zone.query.filter_by(zone_id=id).first()
 
@@ -121,6 +130,7 @@ def zone_exists_in_db(id):
         return True
 
     return False
+
 
 def delete_all_zones():
     try:

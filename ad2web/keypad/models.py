@@ -4,8 +4,9 @@ from sqlalchemy import Column
 
 from ..extensions import db
 
+
 class KeypadButton(db.Model):
-    __tablename__ = 'buttons'
+    __tablename__ = "buttons"
 
     button_id = Column(db.Integer, primary_key=True)
     user_id = Column(db.Integer, nullable=False)

@@ -12,127 +12,144 @@ from ..decorators import admin_or_first_run_required
 from ..settings.models import Setting
 
 from ..certificate.constants import CA, SERVER, INTERNAL, ACTIVE as CERT_ACTIVE
-from .forms import (DeviceTypeForm, NetworkDeviceForm, LocalDeviceForm,
-                   SSLForm, SSLHostForm, DeviceForm, TestDeviceForm, CreateAccountForm, LocalDeviceFormUSB)
-from .constants import (SETUP_TEST, DEFAULT_BAUDRATES, DEFAULT_PATHS, SETUP_ENDPOINT_STAGE)
+from .forms import (
+    DeviceTypeForm,
+    NetworkDeviceForm,
+    LocalDeviceForm,
+    SSLForm,
+    SSLHostForm,
+    DeviceForm,
+    TestDeviceForm,
+    CreateAccountForm,
+    LocalDeviceFormUSB,
+)
+from .constants import SETUP_TEST, DEFAULT_BAUDRATES, DEFAULT_PATHS, SETUP_ENDPOINT_STAGE
 from ..ser2sock import ser2sock
 
 from ..user.constants import ADMIN as USER_ADMIN, ACTIVE as USER_ACTIVE
 from alarmdecoder.panels import ADEMCO
 
-setup = Blueprint('setup', __name__, url_prefix='/setup')
+setup = Blueprint("setup", __name__, url_prefix="/setup")
+
 
 def set_stage(stage):
-    setup_stage = Setting.get_by_name('setup_stage')
+    setup_stage = Setting.get_by_name("setup_stage")
     setup_stage.value = stage
     db.session.add(setup_stage)
+
 
 @setup.context_processor
 def setup_context_processor():
     return {}
 
-@setup.route('/')
+
+@setup.route("/")
 @admin_or_first_run_required
 def index():
-    return render_template('setup/index.html')
+    return render_template("setup/index.html")
 
-@setup.route('/type', methods=['GET', 'POST'])
+
+@setup.route("/type", methods=["GET", "POST"])
 def type():
     form = DeviceTypeForm()
     if not form.is_submitted():
-        device_type = Setting.get_by_name('device_type').value
+        device_type = Setting.get_by_name("device_type").value
         if device_type:
             form.device_type.data = device_type
 
-        device_location = Setting.get_by_name('device_location').value
+        device_location = Setting.get_by_name("device_location").value
         if device_location:
-            managed_ser2sock = Setting.get_by_name('managed_ser2sock', default=False).value
+            managed_ser2sock = Setting.get_by_name("managed_ser2sock", default=False).value
             if managed_ser2sock:
-                form.device_location.data = 'local'
+                form.device_location.data = "local"
             else:
                 form.device_location.data = device_location
 
     if form.validate_on_submit():
-        device_type = Setting.get_by_name('device_type')
+        device_type = Setting.get_by_name("device_type")
         device_type.value = form.device_type.data
         db.session.add(device_type)
 
-        device_location = Setting.get_by_name('device_location')
+        device_location = Setting.get_by_name("device_location")
         device_location.value = form.device_location.data
         db.session.add(device_location)
 
-        next_stage = 'setup.{0}'.format(device_location.value)
+        next_stage = "setup.{0}".format(device_location.value)
         set_stage(SETUP_ENDPOINT_STAGE[next_stage])
 
         db.session.commit()
 
         return redirect(url_for(next_stage))
 
-    return render_template('setup/type.html', form=form)
+    return render_template("setup/type.html", form=form)
 
-@setup.route('/local', methods=['GET', 'POST'])
+
+@setup.route("/local", methods=["GET", "POST"])
 @admin_or_first_run_required
 def local():
     operating_system = platform.system()
     device_search_path = None
 
-    if operating_system != 'Darwin' and operating_system != 'Windows':
-        device_search_path = '/dev/ttyUSB*'
+    if operating_system != "Darwin" and operating_system != "Windows":
+        device_search_path = "/dev/ttyUSB*"
     else:
-        device_search_path = '/dev/tty.usb*'
+        device_search_path = "/dev/tty.usb*"
 
-    device_type = Setting.get_by_name('device_type').value
+    device_type = Setting.get_by_name("device_type").value
 
     form = None
 
-    if device_type != 'AD2USB':
+    if device_type != "AD2USB":
         form = LocalDeviceForm()
     else:
         form = LocalDeviceFormUSB()
         usb_devices = _iterate_usb(device_search_path)
         if not usb_devices:
-            flash('No devices found - please make sure your AD2USB is plugged into a USB Port and refresh the page.', 'error')
+            flash(
+                "No devices found - please make sure your AD2USB is plugged into a USB Port and refresh the page.",
+                "error",
+            )
 
         form.device_path.choices = [(usb_devices[i], usb_devices[i]) for i in usb_devices]
 
     if not form.is_submitted():
-        if device_type != 'AD2USB':
-            device_path = Setting.get_by_name('device_path').value
+        if device_type != "AD2USB":
+            device_path = Setting.get_by_name("device_path").value
             if device_path:
                 form.device_path.data = device_path
             else:
                 form.device_path.data = DEFAULT_PATHS[device_type]
         else:
             usb_devices = _iterate_usb(device_search_path)
-            device_path = Setting.get_by_name('device_path').value
+            device_path = Setting.get_by_name("device_path").value
             form.device_path.choices = [(usb_devices[i], usb_devices[i]) for i in usb_devices]
             if device_path:
                 form.device_path.default = device_path
             else:
                 form.device_path.default = DEFAULT_PATHS[device_type]
 
-        baudrate = Setting.get_by_name('device_baudrate').value
+        baudrate = Setting.get_by_name("device_baudrate").value
         if baudrate:
             form.baudrate.data = baudrate
         else:
             form.baudrate.data = DEFAULT_BAUDRATES[device_type]
 
         if ser2sock.exists():
-            managed = Setting.get_by_name('managed_ser2sock').value
+            managed = Setting.get_by_name("managed_ser2sock").value
             if managed:
                 form.confirm_management.data = managed
         else:
             del form.confirm_management
 
     if form.validate_on_submit():
-        device_path = Setting.get_by_name('device_path')
+        device_path = Setting.get_by_name("device_path")
 
-        if device_type == 'AD2USB':
+        if device_type == "AD2USB":
             usb_devices = _iterate_usb(device_search_path)
             form.device_path.choices = [(usb_devices[i], usb_devices[i]) for i in usb_devices]
 
-        baudrate = Setting.get_by_name('device_baudrate')
-        managed = Setting.get_by_name('managed_ser2sock')
+        baudrate = Setting.get_by_name("device_baudrate")
+        managed = Setting.get_by_name("managed_ser2sock")
         device_path.value = form.device_path.data
         baudrate.value = form.baudrate.data
         managed.value = form.confirm_management.data
@@ -141,30 +158,36 @@ def local():
         db.session.add(baudrate)
         db.session.add(managed)
 
-        next_stage = 'setup.device'
+        next_stage = "setup.device"
         if form.confirm_management.data == True:
-            next_stage = 'setup.sslserver'
+            next_stage = "setup.sslserver"
         else:
             if ser2sock.exists():
                 try:
                     ser2sock.stop()
-                    config_path = Setting.get_by_name('ser2sock_config_path',default='/etc/ser2sock').value
+                    config_path = Setting.get_by_name(
+                        "ser2sock_config_path", default="/etc/ser2sock"
+                    ).value
 
                     config_settings = {
-                        'device_path': '',
+                        "device_path": "",
                     }
 
                     ser2sock.update_config(config_path, **config_settings)
 
                 except OSError:
-                    flash("We've detected that ser2sock is running and failed to stop it.  There may be communication issues unless it is killed manually.", 'warning')
+                    flash(
+                        "We've detected that ser2sock is running and failed to stop it.  There may be communication issues unless it is killed manually.",
+                        "warning",
+                    )
 
         set_stage(SETUP_ENDPOINT_STAGE[next_stage])
         db.session.commit()
 
         return redirect(url_for(next_stage))
 
-    return render_template('setup/local.html', form=form)
+    return render_template("setup/local.html", form=form)
+
 
 def _iterate_usb(device_path):
     ports = glob.glob(device_path)
@@ -172,32 +195,33 @@ def _iterate_usb(device_path):
     devices = {}
 
     for port in ports:
-        port_path = os.path.join('/dev', port.split('/')[-1])
+        port_path = os.path.join("/dev", port.split("/")[-1])
         devices[port_path] = port_path
 
     return devices
 
-@setup.route('/network', methods=['GET', 'POST'])
+
+@setup.route("/network", methods=["GET", "POST"])
 @admin_or_first_run_required
 def network():
     form = NetworkDeviceForm()
     if not form.is_submitted():
-        device_address = Setting.get_by_name('device_address').value
+        device_address = Setting.get_by_name("device_address").value
         if device_address:
             form.device_address.data = device_address
 
-        device_port = Setting.get_by_name('device_port').value
+        device_port = Setting.get_by_name("device_port").value
         if device_port:
             form.device_port.data = device_port
 
-        use_ssl = Setting.get_by_name('use_ssl').value
+        use_ssl = Setting.get_by_name("use_ssl").value
         if use_ssl is not None:
             form.ssl.data = use_ssl
 
     if form.validate_on_submit():
-        device_address = Setting.get_by_name('device_address')
-        device_port = Setting.get_by_name('device_port')
-        ssl = Setting.get_by_name('use_ssl')
+        device_address = Setting.get_by_name("device_address")
+        device_port = Setting.get_by_name("device_port")
+        ssl = Setting.get_by_name("use_ssl")
 
         device_address.value = form.device_address.data
         device_port.value = form.device_port.data
@@ -207,21 +231,23 @@ def network():
         db.session.add(device_port)
         db.session.add(ssl)
 
-        next_stage = 'setup.device'
+        next_stage = "setup.device"
         if form.ssl.data == True:
-            next_stage = 'setup.sslclient'
+            next_stage = "setup.sslclient"
 
         set_stage(SETUP_ENDPOINT_STAGE[next_stage])
         db.session.commit()
 
         return redirect(url_for(next_stage))
 
-    return render_template('setup/network.html', form=form)
+    return render_template("setup/network.html", form=form)
 
-@setup.route('/sslclient', methods=['GET', 'POST'])
+
+@setup.route("/sslclient", methods=["GET", "POST"])
 @admin_or_first_run_required
 def sslclient():
     from ..certificate.models import Certificate
+
     form = SSLForm()
     form.multipart = True
     if form.validate_on_submit():
@@ -230,64 +256,65 @@ def sslclient():
         key_data = form.key.data.stream.read()
 
         # TODO: Fix one()
-        ca_cert = Certificate.query.filter_by(name='AlarmDecoder CA').one()
+        ca_cert = Certificate.query.filter_by(name="AlarmDecoder CA").one()
         ca_cert.certificate = ca_cert_data
-        ca_cert.key = ''
+        ca_cert.key = ""
         db.session.add(ca_cert)
 
         # TODO: Fix one()
-        internal_cert = Certificate.query.filter_by(name='AlarmDecoder Internal').one()
+        internal_cert = Certificate.query.filter_by(name="AlarmDecoder Internal").one()
         internal_cert.certificate = cert_data
         internal_cert.key = key_data
         db.session.add(internal_cert)
 
-        use_ssl = Setting.get_by_name('use_ssl')
+        use_ssl = Setting.get_by_name("use_ssl")
         use_ssl.value = True
         db.session.add(use_ssl)
 
-        next_stage = 'setup.device'
+        next_stage = "setup.device"
         set_stage(SETUP_ENDPOINT_STAGE[next_stage])
         db.session.commit()
 
         return redirect(url_for(next_stage))
 
-    return render_template('setup/sslclient.html', form=form)
+    return render_template("setup/sslclient.html", form=form)
 
-@setup.route('/sslserver', methods=['GET', 'POST'])
+
+@setup.route("/sslserver", methods=["GET", "POST"])
 @admin_or_first_run_required
 def sslserver():
     form = SSLHostForm()
     if not form.is_submitted():
-        use_ssl = Setting.get_by_name('use_ssl').value
+        use_ssl = Setting.get_by_name("use_ssl").value
         if use_ssl is not None:
             form.ssl.data = use_ssl
 
-        config_path = Setting.get_by_name('ser2sock_config_path').value
+        config_path = Setting.get_by_name("ser2sock_config_path").value
         if config_path:
             form.config_path.data = config_path
 
-        device_address = Setting.get_by_name('device_address').value
+        device_address = Setting.get_by_name("device_address").value
         if device_address:
             form.device_address.data = device_address
 
-        device_port = Setting.get_by_name('device_port').value
+        device_port = Setting.get_by_name("device_port").value
         if device_port:
             form.device_port.data = device_port
 
     if form.validate_on_submit():
-        manage_ser2sock = Setting.get_by_name('manage_ser2sock')
-        use_ssl = Setting.get_by_name('use_ssl')
-        config_path = Setting.get_by_name('ser2sock_config_path')
-        device_address = Setting.get_by_name('device_address')
-        device_port = Setting.get_by_name('device_port')
-        device_location = Setting.get_by_name('device_location')
+        manage_ser2sock = Setting.get_by_name("manage_ser2sock")
+        use_ssl = Setting.get_by_name("use_ssl")
+        config_path = Setting.get_by_name("ser2sock_config_path")
+        device_address = Setting.get_by_name("device_address")
+        device_port = Setting.get_by_name("device_port")
+        device_location = Setting.get_by_name("device_location")
 
         manage_ser2sock.value = True
         use_ssl.value = form.ssl.data
         config_path.value = form.config_path.data
         device_address.value = form.device_address.data
         device_port.value = form.device_port.data
-        device_location.value = 'network'
+        device_location.value = "network"
 
         db.session.add(manage_ser2sock)
         db.session.add(use_ssl)
@@ -296,7 +323,7 @@ def sslserver():
         db.session.add(device_port)
         db.session.add(device_location)
 
-        next_stage = 'setup.device'
+        next_stage = "setup.device"
         set_stage(SETUP_ENDPOINT_STAGE[next_stage])
         db.session.commit()
 
@@ -308,67 +335,73 @@ def sslserver():
             server_cert = Certificate.query.filter_by(type=SERVER).first()
 
             config_settings = {
-                'device_path': Setting.get_by_name('device_path').value,
-                'device_port': device_port.value,
-                'device_baudrate': Setting.get_by_name('device_baudrate').value,
-                'device_port': device_port.value,
-                'raw_device_mode': 1,
-                'use_ssl': use_ssl.value,
-                'ca_cert': ca,
-                'server_cert': server_cert
+                "device_path": Setting.get_by_name("device_path").value,
+                "device_port": device_port.value,
+                "device_baudrate": Setting.get_by_name("device_baudrate").value,
+                "device_port": device_port.value,
+                "raw_device_mode": 1,
+                "use_ssl": use_ssl.value,
+                "ca_cert": ca,
+                "server_cert": server_cert,
             }
 
             ser2sock.update_config(config_path.value, **config_settings)
 
         except RuntimeError as err:
-            flash("{0}".format(err), 'error')
+            flash("{0}".format(err), "error")
 
         except ser2sock.HupFailed as err:
-            flash("We had an issue restarting ser2sock: {0}".format(err), 'error')
+            flash("We had an issue restarting ser2sock: {0}".format(err), "error")
 
         except ser2sock.NotFound:
-            flash("We weren't able to find ser2sock on your system.", 'error')
+            flash("We weren't able to find ser2sock on your system.", "error")
 
         except Exception as err:
-            flash("Unexpected Error: {0}".format(err), 'error')
+            flash("Unexpected Error: {0}".format(err), "error")
 
         else:
             return redirect(url_for(next_stage))
 
-    return render_template('setup/ssl.html', form=form)
+    return render_template("setup/ssl.html", form=form)
+
 
 def _generate_certs():
     from ..certificate.models import Certificate
+
     if Certificate.query.filter_by(type=CA).first() is None:
         ca_cert = Certificate(
-                    name="AlarmDecoder CA",
-                    description='CA certificate used for authenticating others.',
-                    status=CERT_ACTIVE,
-                    type=CA)
-        ca_cert.generate(common_name='AlarmDecoder CA')
+            name="AlarmDecoder CA",
+            description="CA certificate used for authenticating others.",
+            status=CERT_ACTIVE,
+            type=CA,
+        )
+        ca_cert.generate(common_name="AlarmDecoder CA")
         db.session.add(ca_cert)
         db.session.commit()
 
         server_cert = Certificate(
-                name="AlarmDecoder Server",
-                description='Server certificate used by ser2sock.',
-                status=CERT_ACTIVE,
-                type=SERVER,
-                ca_id=ca_cert.id)
-        server_cert.generate(common_name='AlarmDecoder Server', parent=ca_cert)
+            name="AlarmDecoder Server",
+            description="Server certificate used by ser2sock.",
+            status=CERT_ACTIVE,
+            type=SERVER,
+            ca_id=ca_cert.id,
+        )
+        server_cert.generate(common_name="AlarmDecoder Server", parent=ca_cert)
         db.session.add(server_cert)
 
         internal_cert = Certificate(
-                name="AlarmDecoder Internal",
-                description='Internal certificate used to communicate with ser2sock.',
-                status=CERT_ACTIVE,
-                type=INTERNAL,
-                ca_id=ca_cert.id)
-        internal_cert.generate(common_name='AlarmDecoder Internal', parent=ca_cert)
+            name="AlarmDecoder Internal",
+            description="Internal certificate used to communicate with ser2sock.",
+            status=CERT_ACTIVE,
+            type=INTERNAL,
+            ca_id=ca_cert.id,
+        )
+        internal_cert.generate(common_name="AlarmDecoder Internal", parent=ca_cert)
         db.session.add(internal_cert)
         db.session.commit()
 
-@setup.route('/test', methods=['GET', 'POST'])
+
+@setup.route("/test", methods=["GET", "POST"])
 @admin_or_first_run_required
 def test():
     form = TestDeviceForm()
@@ -377,24 +410,26 @@ def test():
         set_stage(SETUP_TEST)
         db.session.commit()
     else:
-        setup_complete = Setting.get_by_name('setup_complete', default=False)
+        setup_complete = Setting.get_by_name("setup_complete", default=False)
 
-        next_stage = 'setup.account'
+        next_stage = "setup.account"
         if setup_complete.value:
-            next_stage = 'frontend.index'
-            flash('Setup complete!', 'success')
+            next_stage = "frontend.index"
+            flash("Setup complete!", "success")
 
         set_stage(SETUP_ENDPOINT_STAGE[next_stage])
         db.session.commit()
 
         return redirect(url_for(next_stage))
 
-    return render_template('setup/test.html', form=form)
+    return render_template("setup/test.html", form=form)
 
-@setup.route('/account', methods=['GET', 'POST'])
+
+@setup.route("/account", methods=["GET", "POST"])
 @admin_or_first_run_required
 def account():
     from ..user.models import User
+
     form = CreateAccountForm()
 
     if form.validate_on_submit():
@@ -402,35 +437,44 @@ def account():
         form.populate_obj(user)
         db.session.add(user)
 
-        setup_complete = Setting.get_by_name('setup_complete', default=False)
+        setup_complete = Setting.get_by_name("setup_complete", default=False)
         setup_complete.value = True
         db.session.add(setup_complete)
 
-        next_stage = 'frontend.index'
+        next_stage = "frontend.index"
         set_stage(SETUP_ENDPOINT_STAGE[next_stage])
         db.session.commit()
 
-        flash('Setup complete!', 'success')
+        flash("Setup complete!", "success")
 
         return redirect(url_for(next_stage))
 
-    return render_template('setup/account.html', form=form)
+    return render_template("setup/account.html", form=form)
 
-@setup.route('/device', methods=['GET', 'POST'])
+
+@setup.route("/device", methods=["GET", "POST"])
 @admin_or_first_run_required
 def device():
-    panel_mode = Setting.get_by_name('panel_mode',default=ADEMCO).value
+    panel_mode = Setting.get_by_name("panel_mode", default=ADEMCO).value
     form = DeviceForm()
     if not form.is_submitted():
         if current_app.decoder.device is not None:
             form.panel_mode.data = current_app.decoder.device.mode
             form.keypad_address.data = current_app.decoder.device.address
-            form.address_mask.data = '{0:0>8x}'.format(current_app.decoder.device.address_mask)
-            form.internal_address_mask.data = '{0:0>8x}'.format(current_app.decoder.internal_address_mask)
+            form.address_mask.data = "{0:0>8x}".format(current_app.decoder.device.address_mask)
+            form.internal_address_mask.data = "{0:0>8x}".format(
+                current_app.decoder.internal_address_mask
+            )
             form.lrr_enabled.data = current_app.decoder.device.emulate_lrr
             form.deduplicate.data = current_app.decoder.device.deduplicate
-            form.zone_expanders.data = [str(idx + 1) if value == True else None for idx, value in enumerate(current_app.decoder.device.emulate_zone)]
-            form.relay_expanders.data = [str(idx + 1) if value == True else None for idx, value in enumerate(current_app.decoder.device.emulate_relay)]
+            form.zone_expanders.data = [
+                str(idx + 1) if value == True else None
+                for idx, value in enumerate(current_app.decoder.device.emulate_zone)
+            ]
+            form.relay_expanders.data = [
+                str(idx + 1) if value == True else None
+                for idx, value in enumerate(current_app.decoder.device.emulate_relay)
+            ]
         else:
             # Try to open the AlarmDecoder in order to allow for Get Panel Info to work.
             try:
@@ -439,48 +483,54 @@ def device():
             except Exception:
                 pass
 
-            panel_mode = Setting.get_by_name('panel_mode').value
+            panel_mode = Setting.get_by_name("panel_mode").value
             if panel_mode is not None:
                 form.panel_mode.data = panel_mode
 
-            keypad_address = Setting.get_by_name('keypad_address').value
+            keypad_address = Setting.get_by_name("keypad_address").value
             if keypad_address:
                 form.keypad_address.data = keypad_address
 
-            address_mask = Setting.get_by_name('address_mask').value
+            address_mask = Setting.get_by_name("address_mask").value
             if address_mask is not None:
                 form.address_mask.data = address_mask
 
-            internal_address_mask = Setting.get_by_name('internal_address_mask').value
+            internal_address_mask = Setting.get_by_name("internal_address_mask").value
             if internal_address_mask is not None:
                 form.internal_address_mask.data = internal_address_mask
 
-            lrr_enabled = Setting.get_by_name('lrr_enabled').value
+            lrr_enabled = Setting.get_by_name("lrr_enabled").value
             if lrr_enabled is not None:
                 form.lrr_enabled.data = lrr_enabled
 
-            zone_expanders = Setting.get_by_name('emulate_zone_expanders').value
+            zone_expanders = Setting.get_by_name("emulate_zone_expanders").value
             if zone_expanders is not None:
-                form.zone_expanders.data = [str(idx + 1) if value == True else None for idx, value in enumerate([v == 'True' for v in zone_expanders.split(',')])]
+                form.zone_expanders.data = [
+                    str(idx + 1) if value == True else None
+                    for idx, value in enumerate([v == "True" for v in zone_expanders.split(",")])
+                ]
 
-            relay_expanders = Setting.get_by_name('emulate_relay_expanders').value
+            relay_expanders = Setting.get_by_name("emulate_relay_expanders").value
             if relay_expanders is not None:
-                form.relay_expanders.data = [str(idx + 1) if value == True else None for idx, value in enumerate([v == 'True' for v in relay_expanders.split(',')])]
+                form.relay_expanders.data = [
+                    str(idx + 1) if value == True else None
+                    for idx, value in enumerate([v == "True" for v in relay_expanders.split(",")])
+                ]
 
-            deduplicate = Setting.get_by_name('deduplicate').value
+            deduplicate = Setting.get_by_name("deduplicate").value
             if deduplicate is not None:
                 form.deduplicate.data = deduplicate
 
     else:
         if form.validate_on_submit():
-            panel_mode = Setting.get_by_name('panel_mode')
-            keypad_address = Setting.get_by_name('keypad_address')
-            address_mask = Setting.get_by_name('address_mask')
-            internal_address_mask = Setting.get_by_name('internal_address_mask')
-            lrr_enabled = Setting.get_by_name('lrr_enabled')
-            zone_expanders = Setting.get_by_name('emulate_zone_expanders')
-            relay_expanders = Setting.get_by_name('emulate_relay_expanders')
-            deduplicate = Setting.get_by_name('deduplicate')
+            panel_mode = Setting.get_by_name("panel_mode")
+            keypad_address = Setting.get_by_name("keypad_address")
+            address_mask = Setting.get_by_name("address_mask")
+            internal_address_mask = Setting.get_by_name("internal_address_mask")
+            lrr_enabled = Setting.get_by_name("lrr_enabled")
+            zone_expanders = Setting.get_by_name("emulate_zone_expanders")
+            relay_expanders = Setting.get_by_name("emulate_relay_expanders")
+            deduplicate = Setting.get_by_name("deduplicate")
 
             zx = [True if str(x) in form.zone_expanders.data else False for x in range(1, 6)]
             rx = [True if str(x) in form.relay_expanders.data else False for x in range(1, 5)]
@@ -490,8 +540,8 @@ def device():
             address_mask.value = form.address_mask.data
             internal_address_mask.value = form.internal_address_mask.data
             lrr_enabled.value = form.lrr_enabled.data
-            zone_expanders.value = ','.join([str(x) for x in zx])
-            relay_expanders.value = ','.join([str(x) for x in rx])
+            zone_expanders.value = ",".join([str(x) for x in zx])
+            relay_expanders.value = ",".join([str(x) for x in rx])
             deduplicate.value = form.deduplicate.data
 
             set_stage(SETUP_TEST)
@@ -507,10 +557,11 @@ def device():
 
             db.session.commit()
 
-            return redirect(url_for('setup.test'))
+            return redirect(url_for("setup.test"))
 
-    return render_template('setup/device.html', form=form, panel_mode=panel_mode)
+    return render_template("setup/device.html", form=form, panel_mode=panel_mode)
 
-@setup.route('/complete', methods=['GET'])
+
+@setup.route("/complete", methods=["GET"])
 def complete():
-    return render_template('setup/complete.html')
+    return render_template("setup/complete.html")

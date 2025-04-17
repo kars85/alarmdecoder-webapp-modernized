@@ -8,15 +8,26 @@ try:
     import cv2
     import numpy as np
     from urllib.request import urlopen  # Python 3
+
     hascv2 = True
 except ImportError:
     import cv2
     import numpy as np
     from urllib.request import urlopen
+
     hascv2 = False
 
 from .models import Camera
-from .constants import USERNAME, PASSWORD, JPG_URL, CAMDIR, HEAD, FOOT, RECT_XML_FILE, READ_BYTE_AMOUNT
+from .constants import (
+    USERNAME,
+    PASSWORD,
+    JPG_URL,
+    CAMDIR,
+    HEAD,
+    FOOT,
+    RECT_XML_FILE,
+    READ_BYTE_AMOUNT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,16 +37,16 @@ class CameraSystem:
         self._cameras = {}
         self._camera_ids = []
         self._image_bytes = {}
-        self._xml_path = os.path.join(os.getcwd(), 'ad2web', 'cameras', RECT_XML_FILE)
+        self._xml_path = os.path.join(os.getcwd(), "ad2web", "cameras", RECT_XML_FILE)
         self._init_cameras()
 
     def _init_cameras(self):
         for cam in Camera.query.all():
             self._cameras[cam.id] = [cam.username, cam.password, cam.get_jpg_url]
-            self._image_bytes[cam.id] = b''  # store as bytes
+            self._image_bytes[cam.id] = b""  # store as bytes
             self._camera_ids.append(cam.id)
 
-        current_app.jinja_env.globals['cameras'] = len(self._cameras)
+        current_app.jinja_env.globals["cameras"] = len(self._cameras)
 
     def get_camera_ids(self):
         return self._camera_ids
@@ -57,7 +68,7 @@ class CameraSystem:
             url = self._cameras[cam_id][JPG_URL]
 
             user_pass = f"{username}:{password}@"
-            url_slash_index = url.find('//')
+            url_slash_index = url.find("//")
             if url_slash_index == -1:
                 logger.error(f"Invalid camera URL: {url}")
                 return
@@ -74,13 +85,15 @@ class CameraSystem:
             foot = self._image_bytes[cam_id].find(FOOT)
 
             if head != -1 and foot != -1:
-                jpg_data = self._image_bytes[cam_id][head:foot + len(FOOT)]
-                self._image_bytes[cam_id] = b''  # reset buffer
+                jpg_data = self._image_bytes[cam_id][head : foot + len(FOOT)]
+                self._image_bytes[cam_id] = b""  # reset buffer
 
                 # Decode and process image
                 img = cv2.imdecode(np.frombuffer(jpg_data, dtype=np.uint8), cv2.IMREAD_COLOR)
                 if img is not None:
-                    rects = cascade.detectMultiScale(img, scaleFactor=1.1, minNeighbors=5, minSize=(10, 10))
+                    rects = cascade.detectMultiScale(
+                        img, scaleFactor=1.1, minNeighbors=5, minSize=(10, 10)
+                    )
 
                     for x, y, w, h in rects:
                         cv2.rectangle(img, (x, y), (x + w, y + h), (127, 255, 0), 1)

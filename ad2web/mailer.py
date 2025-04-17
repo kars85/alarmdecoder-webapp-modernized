@@ -14,7 +14,15 @@ class Mailer:
     username = None
     password = None
 
-    def __init__(self, server="127.0.0.1", port=25, tls=False, authentication_required=False, username=None, password=None):
+    def __init__(
+        self,
+        server="127.0.0.1",
+        port=25,
+        tls=False,
+        authentication_required=False,
+        username=None,
+        password=None,
+    ):
         self.port = port
         self.server = server
         self.tls = tls
@@ -46,16 +54,16 @@ class Mailer:
             assert isinstance(files, list)
 
         msg = MIMEMultipart()
-        msg['From'] = send_from
-        msg['To'] = ', '.join(send_to)
-        msg['Date'] = formatdate(localtime=True)
-        msg['Subject'] = subject
+        msg["From"] = send_from
+        msg["To"] = ", ".join(send_to)
+        msg["Date"] = formatdate(localtime=True)
+        msg["Subject"] = subject
         msg.attach(MIMEText(text))
 
         for f in files or []:
             with open(f, "rb") as fil:
                 part = MIMEApplication(fil.read(), Name=basename(f))
-                part['Content-Disposition'] = f'attachment; filename="{basename(f)}"'
+                part["Content-Disposition"] = f'attachment; filename="{basename(f)}"'
                 msg.attach(part)
 
         smtp = smtplib.SMTP(self.server, self.port)

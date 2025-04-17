@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
-#import urllib2
+# import urllib2
 import ssl
+
 # ADD THIS IMPORT near the top of ad2web/settings/views.py
 from urllib.request import urlopen
 from werkzeug.utils import secure_filename
+
 # You already import ssl, so that's fine
 import os
 import platform
@@ -20,25 +22,29 @@ from typing import cast, Any
 
 try:
     import netifaces
+
     has_netifaces = True
 except ImportError:
     has_netifaces = False
 
 
-#import compiler
+# import compiler
 import sys
 import importlib
 from importlib.util import find_spec
+
 has_upnp = find_spec("miniupnpc") is not None
 import time
 import ast
-#from compiler.visitor import ASTVisitor
+
+# from compiler.visitor import ASTVisitor
 # In ad2web/settings/views.py
 from datetime import datetime, timedelta
 
 from flask import Blueprint, render_template, current_app, request, flash, url_for, redirect
 from flask_login import login_required, current_user
-
+from flask_wtf import FlaskForm
+from wtforms import StringField, SubmitField
 from sqlalchemy.exc import SQLAlchemyError
 
 from alarmdecoder.panels import DSC
@@ -48,30 +54,74 @@ from ..extensions import db
 from ..utils import allowed_file, make_dir, INSTANCE_FOLDER_PATH
 from ..decorators import admin_required
 from ..settings import Setting
-from .forms import ProfileForm, PasswordForm, ImportSettingsForm, HostSettingsForm, EthernetSelectionForm, EthernetConfigureForm, SwitchBranchForm, EmailConfigureForm, UPNPForm, VersionCheckerForm, ExportConfigureForm
-from .constants import HOSTS_FILE, HOSTNAME_FILE, NETWORK_FILE, KNOWN_MODULES, DAILY, IP_CHECK_SERVER_URL
-#from ..certificate import Certificate, CA, SERVER
+from .forms import (
+    ProfileForm,
+    PasswordForm,
+    ImportSettingsForm,
+    HostSettingsForm,
+    EthernetSelectionForm,
+    EthernetConfigureForm,
+    SwitchBranchForm,
+    EmailConfigureForm,
+    UPNPForm,
+    VersionCheckerForm,
+    ExportConfigureForm,
+    DeviceConfigureForm,
+)
+from .constants import (
+    HOSTS_FILE,
+    HOSTNAME_FILE,
+    NETWORK_FILE,
+    KNOWN_MODULES,
+    DAILY,
+    IP_CHECK_SERVER_URL,
+)
+
+# from ..certificate import Certificate, CA, SERVER
 from ..upnp import UPNP
 from ..exporter import Exporter
 
-#Check if the 'service' command is available on the system
+# Check if the 'service' command is available on the system
 hasservice = shutil.which("service") is not None
 
 
+settings = Blueprint("settings", __name__, url_prefix="/settings")
 
-settings = Blueprint('settings', __name__, url_prefix='/settings')
+
+class DummyDeviceForm(FlaskForm):
+    dummy_field = StringField("Example Field")
+    submit = SubmitField("Continue")
+
+
+@settings.route("/device", methods=["GET", "POST"])
+@login_required
+@admin_required
+def device():
+    form = DeviceConfigureForm()
+
+    # You could default values from settings, or just test rendering
+    if form.validate_on_submit():
+        flash("Device settings saved (not yet implemented).", "info")
+        return redirect(url_for("settings.device"))
+
+    form_type = form.device_type.data if form.device_type.data else "type"
+
+    return render_template("settings/device.html", form=form, form_type=form_type)
+
 
 def get_user_related_constants():
-    user_module = importlib.import_module('ad2web.user')
+    user_module = importlib.import_module("ad2web.user")
     return user_module.User, user_module.USER_ROLE, user_module.USER_STATUS, user_module.ADMIN
 
-@settings.route('/')
+
+@settings.route("/")
 @login_required
 def index():
-    ssl_enabled = Setting.get_by_name('use_ssl',default=False).value
-    return render_template('settings/index.html', ssl=ssl_enabled, active='index')
+    ssl_enabled = Setting.get_by_name("use_ssl", default=False).value
+    return render_template("settings/index.html", ssl=ssl_enabled, active="index")
 
-@settings.route('/profile', methods=['GET', 'POST'])
+
+@settings.route("/profile", methods=["GET", "POST"])
 @login_required
 def profile():
     # Load user and related constants
@@ -83,7 +133,7 @@ def profile():
         email=current_user.email,
         role_code=current_user.role_code,
         status_code=current_user.status_code,
-        next=request.args.get('next')
+        next=request.args.get("next"),
     )
 
     if form.validate_on_submit():
@@ -91,12 +141,12 @@ def profile():
 
         if avatar_file and allowed_file(avatar_file.filename):
             # Create user-specific upload directory
-            user_upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], f"user_{user.id}")
+            user_upload_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], f"user_{user.id}")
             make_dir(user_upload_dir)  # Make sure the folder exists
 
             # Extract extension and securely generate a filename
             _, ext = os.path.splitext(secure_filename(avatar_file.filename))
-            today = datetime.now().strftime('_%Y-%m-%d')
+            today = datetime.now().strftime("_%Y-%m-%d")
 
             # Read file for hashing
             file_data = avatar_file.read()
@@ -115,24 +165,19 @@ def profile():
         db.session.add(user)
         db.session.commit()
 
-        flash('Public profile updated.', 'success')
+        flash("Public profile updated.", "success")
 
-    return render_template(
-        'settings/profile.html',
-        user=user,
-        active="profile",
-        form=form
-    )
+    return render_template("settings/profile.html", user=user, active="profile", form=form)
 
 
-@settings.route('/password', methods=['GET', 'POST'])
+@settings.route("/password", methods=["GET", "POST"])
 @login_required
 def password():
 
-# Then call get_user_related_constants() whenever you need these components.
+    # Then call get_user_related_constants() whenever you need these components.
     User, USER_ROLE, USER_STATUS, ADMIN = get_user_related_constants()
     user = User.query.filter_by(name=current_user.name).first_or_404()
-    form = PasswordForm(next=request.args.get('next'))
+    form = PasswordForm(next=request.args.get("next"))
 
     if form.validate_on_submit():
         form.populate_obj(user)
@@ -141,27 +186,29 @@ def password():
         db.session.add(user)
         db.session.commit()
 
-        flash('Password updated.', 'success')
+        flash("Password updated.", "success")
 
-    use_ssl = Setting.get_by_name('use_ssl', default=False).value
+    use_ssl = Setting.get_by_name("use_ssl", default=False).value
 
-    return render_template('settings/password.html', user=user,
-            active="password", form=form, ssl=use_ssl)
+    return render_template(
+        "settings/password.html", user=user, active="password", form=form, ssl=use_ssl
+    )
 
-@settings.route('/host', methods=['GET', 'POST'])
+
+@settings.route("/host", methods=["GET", "POST"])
 @login_required
 @admin_required
 def host():
     operating_system = platform.system()
 
-    if operating_system.title() != 'Linux':
-        flash('Only supported on Linux systems!', 'error')
-        return redirect(url_for('settings.index'))
+    if operating_system.title() != "Linux":
+        flash("Only supported on Linux systems!", "error")
+        return redirect(url_for("settings.index"))
 
     uptime = _get_system_uptime()
     cpu_temp = _get_cpu_temperature()
 
-    #if missing netifaces dependency, we do not allow to view host settings
+    # if missing netifaces dependency, we do not allow to view host settings
     if has_netifaces:
         get_hostname = socket.getfqdn()
         form = EthernetSelectionForm()
@@ -170,14 +217,27 @@ def host():
         form.ethernet_devices.choices = [(i, i) for i in network_interfaces]
 
         if form.validate_on_submit():
-            return redirect(url_for('settings.configure_ethernet_device', device=form.ethernet_devices.data))
+            return redirect(
+                url_for("settings.configure_ethernet_device", device=form.ethernet_devices.data)
+            )
 
-        return render_template('settings/host.html', hostname=get_hostname, uptime=uptime, cpu_temp=cpu_temp, form=form, active="host settings")
+        return render_template(
+            "settings/host.html",
+            hostname=get_hostname,
+            uptime=uptime,
+            cpu_temp=cpu_temp,
+            form=form,
+            active="host settings",
+        )
     else:
-        flash('Please install the netifaces module (sudo pip install netifaces) to view host settings information.', 'error')
-        return redirect(url_for('settings.index'))
+        flash(
+            "Please install the netifaces module (sudo pip install netifaces) to view host settings information.",
+            "error",
+        )
+        return redirect(url_for("settings.index"))
 
-@settings.route('/hostname', methods=['GET', 'POST'])
+
+@settings.route("/hostname", methods=["GET", "POST"])
 @login_required
 @admin_required
 def hostname():
@@ -193,32 +253,34 @@ def hostname():
         if os.access(HOSTS_FILE, os.W_OK):
             _sethostname(HOSTS_FILE, current_hostname, new_hostname)
         else:
-            flash('Unable to write HOSTS FILE, check permissions', 'error')
+            flash("Unable to write HOSTS FILE, check permissions", "error")
 
         if os.access(HOSTNAME_FILE, os.W_OK):
             _sethostname(HOSTNAME_FILE, current_hostname, new_hostname)
         else:
-            flash('Unable to write HOSTNAME FILE, check permissions', 'error')
+            flash("Unable to write HOSTNAME FILE, check permissions", "error")
 
         try:
             subprocess.run(["hostname", "-b", new_hostname], check=True)
         except subprocess.CalledProcessError:
-            flash('Error setting hostname with the hostname command.', 'error')
+            flash("Error setting hostname with the hostname command.", "error")
 
         if hasservice:
             try:
                 subprocess.run(["service", "avahi-daemon", "restart"], check=True)
             except subprocess.CalledProcessError:
-                flash('Error restarting the avahi-daemon', 'error')
+                flash("Error restarting the avahi-daemon", "error")
 
-        return redirect(url_for('settings.host'))
+        return redirect(url_for("settings.host"))
 
-    return render_template('settings/hostname.html', hostname=current_hostname, form=form, active="hostname")
+    return render_template(
+        "settings/hostname.html", hostname=current_hostname, form=form, active="hostname"
+    )
 
-@settings.route('/get_ethernet_info/<string:device>', methods=['GET', 'POST'])
+
+@settings.route("/get_ethernet_info/<string:device>", methods=["GET", "POST"])
 @login_required
 @admin_required
-
 def get_ethernet_info(device):
     eth_properties = {}
 
@@ -226,28 +288,27 @@ def get_ethernet_info(device):
         addresses = netifaces.ifaddresses(device)
         gateways = netifaces.gateways()
 
-        eth_properties['device'] = device
-        eth_properties['ipv4'] = addresses.get(netifaces.AF_INET, [])
+        eth_properties["device"] = device
+        eth_properties["ipv4"] = addresses.get(netifaces.AF_INET, [])
 
         if netifaces.AF_INET6 in addresses:
-            eth_properties['ipv6'] = addresses[netifaces.AF_INET6]
+            eth_properties["ipv6"] = addresses[netifaces.AF_INET6]
 
-        eth_properties['mac_address'] = addresses.get(netifaces.AF_LINK, [])
+        eth_properties["mac_address"] = addresses.get(netifaces.AF_LINK, [])
 
-        default_gateways = cast(dict, gateways.get('default'))   # type: ignore[index]
+        default_gateways = cast(dict, gateways.get("default"))  # type: ignore[index]
         if default_gateways:
             default_gateway_info = default_gateways.get(netifaces.AF_INET)
             if default_gateway_info:
-                eth_properties['default_gateway'] = {
+                eth_properties["default_gateway"] = {
                     "ip": default_gateway_info[0],
-                    "interface": default_gateway_info[1]
+                    "interface": default_gateway_info[1],
                 }
 
     return eth_properties
 
 
-
-@settings.route('/reboot', methods=['GET', 'POST'])
+@settings.route("/reboot", methods=["GET", "POST"])
 @login_required
 @admin_required
 def system_reboot():
@@ -255,13 +316,14 @@ def system_reboot():
         subprocess.run(["sync"], check=True)
         subprocess.run(["reboot"], check=True)
     except subprocess.CalledProcessError:
-        flash('Unable to reboot device!', 'error')
-        return redirect(url_for('settings.host'))
+        flash("Unable to reboot device!", "error")
+        return redirect(url_for("settings.host"))
 
-    flash('Rebooting device!', 'success')
-    return redirect(url_for('settings.host'))
+    flash("Rebooting device!", "success")
+    return redirect(url_for("settings.host"))
 
-@settings.route('/shutdown', methods=['GET', 'POST'])
+
+@settings.route("/shutdown", methods=["GET", "POST"])
 @login_required
 @admin_required
 def system_shutdown():
@@ -273,13 +335,14 @@ def system_shutdown():
             # 143 = SIGTERM (often normal on shutdown)
             pass
         else:
-            flash('Unable to shutdown device!', 'error')
-            return redirect(url_for('settings.host'))
+            flash("Unable to shutdown device!", "error")
+            return redirect(url_for("settings.host"))
 
-    flash('Shutting device down!', 'success')
-    return redirect(url_for('settings.host'))
+    flash("Shutting device down!", "success")
+    return redirect(url_for("settings.host"))
 
-@settings.route('/network/<string:device>', methods=['GET', 'POST'])
+
+@settings.route("/network/<string:device>", methods=["GET", "POST"])
 @login_required
 @admin_required
 def configure_ethernet_device(device):
@@ -289,18 +352,18 @@ def configure_ethernet_device(device):
     if os.access(NETWORK_FILE, os.W_OK):
         device_map = _parse_network_file()
     else:
-        flash(NETWORK_FILE + ' is not writable!', 'error')
-        return redirect(url_for('settings.host'))
+        flash(NETWORK_FILE + " is not writable!", "error")
+        return redirect(url_for("settings.host"))
 
     properties = _get_ethernet_properties(device, device_map)
     addresses = netifaces.ifaddresses(device)
     ipv4 = addresses[netifaces.AF_INET]
 
-#first address and gateway
-    ip_address = ipv4[0]['addr']
-    subnet_mask = ipv4[0]['netmask']  # type: ignore[key]
+    # first address and gateway
+    ip_address = ipv4[0]["addr"]
+    subnet_mask = ipv4[0]["netmask"]  # type: ignore[key]
     gateways = netifaces.gateways()
-    gateway = gateways['default'][netifaces.AF_INET]  # type: ignore[index]
+    gateway = gateways["default"][netifaces.AF_INET]  # type: ignore[index]
     default_gateway = gateway[0]
 
     if not form.is_submitted():
@@ -309,35 +372,42 @@ def configure_ethernet_device(device):
         form.netmask.data = subnet_mask
 
         if not properties:
-            if device == 'lo' or device == 'lo0':
-                flash('Unable to configure loopback device!', 'error')
-                return redirect(url_for('settings.host'))
+            if device == "lo" or device == "lo0":
+                flash("Unable to configure loopback device!", "error")
+                return redirect(url_for("settings.host"))
 
-            flash('Device ' + device + ' not found in ' + NETWORK_FILE + ' you should use your OS tools to configure your network.', 'error')
-            return redirect(url_for('settings.host'))
+            flash(
+                "Device "
+                + device
+                + " not found in "
+                + NETWORK_FILE
+                + " you should use your OS tools to configure your network.",
+                "error",
+            )
+            return redirect(url_for("settings.host"))
         else:
             for s in properties:
-                if 'loopback' in s:
-                    flash('Unable to configure loopback device!', 'error')
-                    return redirect(url_for('settings.host'))
-                if 'static' in s:
-                    form.connection_type.data = 'static'
-                if 'dhcp' in s:
-                    form.connection_type.data = 'dhcp'
+                if "loopback" in s:
+                    flash("Unable to configure loopback device!", "error")
+                    return redirect(url_for("settings.host"))
+                if "static" in s:
+                    form.connection_type.data = "static"
+                if "dhcp" in s:
+                    form.connection_type.data = "dhcp"
 
     if form.validate_on_submit():
-        if form.connection_type.data == 'static':
+        if form.connection_type.data == "static":
             i = 0
             interface_index = 0
 
-#find our iface definition string for "device"
+            # find our iface definition string for "device"
             for i in range(0, len(properties)):
                 if properties[i].find("dhcp") != -1 and properties[i].find(device) != -1:
                     interface_index = device_map.index(properties[i])
-                    x = properties[i].replace('dhcp', 'static')
-                    #replace dhcp with static, remove original add copy
+                    x = properties[i].replace("dhcp", "static")
+                    # replace dhcp with static, remove original add copy
                     del properties[i]
-#delete our interface from the map, add it to new properties list for re-adding to map later
+                    # delete our interface from the map, add it to new properties list for re-adding to map later
                     del device_map[interface_index]
                     properties.append(x)
                     break
@@ -345,9 +415,9 @@ def configure_ethernet_device(device):
                     if properties[i].find("static") != -1 and properties[i].find(device) != -1:
                         interface_index = device_map.index(properties[i])
                         truncated = properties[i].splitlines()
-                        #truncate off address/netmask/gateway, we add after
+                        # truncate off address/netmask/gateway, we add after
                         del properties[i]
-#if we're static but we just want to change our address
+                        # if we're static but we just want to change our address
                         del device_map[interface_index]
                         properties.append(truncated[0] + "\n")
                         break
@@ -357,7 +427,7 @@ def configure_ethernet_device(device):
                     del device_map[i]
                     break
 
-            #append address values to interface string
+            # append address values to interface string
             address = str("\taddress " + form.ip_address.data + "\n")
             netmask = str("\tnetmask " + form.netmask.data + "\n")
             gateway = str("\tgateway " + form.gateway.data + "\n")
@@ -366,14 +436,14 @@ def configure_ethernet_device(device):
             properties.append(netmask)
             properties.append(gateway)
 
-            #append new interface string with address information included
+            # append new interface string with address information included
             for i in range(0, len(properties)):
                 device_map.insert(interface_index + i, properties[i])
 
-            #write the network file with the new device map
+            # write the network file with the new device map
             for i in range(0, len(device_map)):
                 if device_map[i].find("iface default inet dhcp") != -1:
-                    x = device_map[i].replace('dhcp', 'static')
+                    x = device_map[i].replace("dhcp", "static")
                     del device_map[i]
                     device_map.append(x)
                     break
@@ -384,7 +454,7 @@ def configure_ethernet_device(device):
                 if properties[i].find("static") != -1 and properties[i].find(device) != -1:
                     interface_index = device_map.index(properties[i])
                     truncated = properties[0].splitlines()
-                    x = truncated[0].replace('static', 'dhcp')
+                    x = truncated[0].replace("static", "dhcp")
 
                     del properties
                     properties = []
@@ -396,27 +466,33 @@ def configure_ethernet_device(device):
 
             for i in range(0, len(device_map)):
                 if device_map[i].find("iface default inet static") != -1:
-                    x = device_map[i].replace('static', 'dhcp')
+                    x = device_map[i].replace("static", "dhcp")
                     del device_map[i]
                     device_map.append(x)
                     break
 
             _write_network_file(device_map)
-#substitute values in the device_map, write the file and restart networking
+        # substitute values in the device_map, write the file and restart networking
         try:
             subprocess.run(["ifdown", str(device)], check=True)
         except subprocess.CalledProcessError:
-            flash('Unable to restart networking. Please try manually.', 'error')
+            flash("Unable to restart networking. Please try manually.", "error")
 
         try:
             subprocess.run(["ifup", str(device)], check=True)
         except subprocess.CalledProcessError:
-            flash('Unable to restart networking. Please try manually.', 'error')
+            flash("Unable to restart networking. Please try manually.", "error")
         form.ethernet_device.data = device
 
     form.ethernet_device.data = device
 
-    return render_template('settings/configure_ethernet_device.html', form=form, device=device, active="network settings")
+    return render_template(
+        "settings/configure_ethernet_device.html",
+        form=form,
+        device=device,
+        active="network settings",
+    )
+
 
 def _sethostname(config_file, old_hostname, new_hostname):
     """
@@ -428,19 +504,23 @@ def _sethostname(config_file, old_hostname, new_hostname):
         new_hostname (str): Hostname to replace with.
     """
     try:
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             contents = f.read()
 
         if old_hostname not in contents:
-            current_app.logger.warning(f"{old_hostname} not found in {config_file}. Skipping replacement.")
+            current_app.logger.warning(
+                f"{old_hostname} not found in {config_file}. Skipping replacement."
+            )
             return
 
         updated_contents = contents.replace(old_hostname, new_hostname)
 
-        with open(config_file, 'w', encoding='utf-8') as f:
+        with open(config_file, "w", encoding="utf-8") as f:
             f.write(updated_contents)
 
-        current_app.logger.info(f"Updated hostname in {config_file}: {old_hostname} → {new_hostname}")
+        current_app.logger.info(
+            f"Updated hostname in {config_file}: {old_hostname} → {new_hostname}"
+        )
 
     except Exception as e:
         current_app.logger.error(f"Failed to update hostname in {config_file}: {e}")
@@ -455,18 +535,20 @@ def _list_network_interfaces():
 
     return interfaces
 
+
 def _parse_network_file():
-    text = open(NETWORK_FILE, 'r').read()
-    #iface string should also contain dhcp/static address gateway netmask information according to the RE
-    indexes = [s.start() for s in re.finditer('auto|iface|source|mapping|allow-|wpa-', text)]
+    text = open(NETWORK_FILE, "r").read()
+    # iface string should also contain dhcp/static address gateway netmask information according to the RE
+    indexes = [s.start() for s in re.finditer("auto|iface|source|mapping|allow-|wpa-", text)]
     result = [text[start:end] for start, end in zip(indexes, indexes[1:] + [len(text)])]
 
     return result
 
+
 def _write_network_file(device_map):
-    text = ''
-    f = open(NETWORK_FILE, 'r+')
-    #go to beginning of file, rewrite ethernet device map, truncate old since we'll have a whole copy of the file in the map
+    text = ""
+    f = open(NETWORK_FILE, "r+")
+    # go to beginning of file, rewrite ethernet device map, truncate old since we'll have a whole copy of the file in the map
     f.seek(0)
 
     if device_map is not None:
@@ -478,7 +560,8 @@ def _write_network_file(device_map):
 
     f.close()
 
-#reading the network file and tokenizing for ability to update network settings
+
+# reading the network file and tokenizing for ability to update network settings
 def _get_ethernet_properties(device, device_map):
     properties = []
     if device_map is not None:
@@ -488,27 +571,30 @@ def _get_ethernet_properties(device, device_map):
 
     return properties
 
-#system uptime
+
+# system uptime
 def _get_system_uptime():
-    with open(str('/proc/uptime'), 'r') as f:
+    with open(str("/proc/uptime"), "r") as f:
         uptime_seconds = float(f.readline().split()[0])
-        uptime_string = str(timedelta(seconds = uptime_seconds))
+        uptime_string = str(timedelta(seconds=uptime_seconds))
 
     uptime_string = uptime_string[:-4]
     return uptime_string
 
-#cpu temperature
+
+# cpu temperature
 def _get_cpu_temperature():
-    if os.path.isfile('/sys/class/thermal/thermal_zone0/temp'):
-        with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+    if os.path.isfile("/sys/class/thermal/thermal_zone0/temp"):
+        with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
             cpu_temperature = float(f.readline())
         cpu_temperature_string = str(cpu_temperature / 1000)
         return cpu_temperature_string
     else:
-        return 'not supported'
+        return "not supported"
 
-@settings.route('/configure_exports', methods=['GET', 'POST'])
-@settings.route('/exports', endpoint='settings_exports_alt', methods=['GET', 'POST'])
+
+@settings.route("/configure_exports", methods=["GET", "POST"])
+@settings.route("/exports", endpoint="settings_exports_alt", methods=["GET", "POST"])
 @login_required
 @admin_required
 def configure_exports():
@@ -521,45 +607,40 @@ def configure_exports():
         db.session.add(setting)
 
     if not form.is_submitted():
-        email_server = Setting.get_by_name('system_email_server', default=None).value
+        email_server = Setting.get_by_name("system_email_server", default=None).value
 
         if email_server is None:
-            flash('No system email configured!', 'error')
-            return redirect(url_for('settings.configure_system_email'))
+            flash("No system email configured!", "error")
+            return redirect(url_for("settings.configure_system_email"))
 
         # Populate form with existing setting values
-        form.frequency.data = Setting.get_by_name('export_frequency', default=DAILY).value
-        form.email.data = Setting.get_by_name('export_email_enable', default=True).value
-        form.email_address.data = Setting.get_by_name('export_mailer_to', default=None).value
-        form.local_file.data = Setting.get_by_name('enable_local_file_storage', default=True).value
+        form.frequency.data = Setting.get_by_name("export_frequency", default=DAILY).value
+        form.email.data = Setting.get_by_name("export_email_enable", default=True).value
+        form.email_address.data = Setting.get_by_name("export_mailer_to", default=None).value
+        form.local_file.data = Setting.get_by_name("enable_local_file_storage", default=True).value
         form.local_file_path.data = Setting.get_by_name(
-            'export_local_path',
-            default=os.path.join(INSTANCE_FOLDER_PATH, 'exports')
-        ).value or os.path.join(INSTANCE_FOLDER_PATH, 'exports')
-        form.days_to_keep.data = Setting.get_by_name('days_to_keep', default=7).value
+            "export_local_path", default=os.path.join(INSTANCE_FOLDER_PATH, "exports")
+        ).value or os.path.join(INSTANCE_FOLDER_PATH, "exports")
+        form.days_to_keep.data = Setting.get_by_name("days_to_keep", default=7).value
 
     if form.validate_on_submit():
-        update_setting('export_mailer_to', form.email_address.data)
-        update_setting('export_email_enable', form.email.data)
-        update_setting('export_frequency', int(form.frequency.data))
-        update_setting('enable_local_file_storage', form.local_file.data)
-        update_setting('export_local_path', form.local_file_path.data)
-        update_setting('days_to_keep', form.days_to_keep.data)
+        update_setting("export_mailer_to", form.email_address.data)
+        update_setting("export_email_enable", form.email.data)
+        update_setting("export_frequency", int(form.frequency.data))
+        update_setting("enable_local_file_storage", form.local_file.data)
+        update_setting("export_local_path", form.local_file_path.data)
+        update_setting("days_to_keep", form.days_to_keep.data)
 
         db.session.commit()
 
         current_app.decoder._exporter_thread.prepParams()  # type: ignore[attr-defined]
 
-        return redirect(url_for('settings.index'))
+        return redirect(url_for("settings.index"))
 
-    return render_template(
-        'settings/configure_exports.html',
-        form=form,
-        active='advanced'
-    )
+    return render_template("settings/configure_exports.html", form=form, active="advanced")
 
 
-@settings.route('/export', methods=['GET', 'POST'])
+@settings.route("/export", methods=["GET", "POST"])
 @login_required
 @admin_required
 def export():
@@ -568,28 +649,21 @@ def export():
     exporter.exportSettings()
     return exporter.ReturnResponse()
 
-@settings.route('/git', methods=['GET', 'POST'] )
-@login_required
-@admin_required
+
 def run_git_command(args, cwd):
-    result = subprocess.run(
-        ["git"] + args,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        check=True
-    )
+    result = subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True, check=True)
     return result.stdout
 
-@settings.route('/git', methods=['GET', 'POST'])
+
+@settings.route("/git", methods=["GET", "POST"])
 @login_required
 @admin_required
 def switch_branch():
     def strip_ansi(line):
-        rc = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -/]*[@-~]')
-        line = rc.sub('', line)
-        rc = re.compile(r'\x1B[=><A-Z]')
-        line = rc.sub('', line)
+        rc = re.compile(r"(\x9B|\x1B\[)[0-?]*[ -/]*[@-~]")
+        line = rc.sub("", line)
+        rc = re.compile(r"\x1B[=><A-Z]")
+        line = rc.sub("", line)
         return line.strip()
 
     def build_remotes_list(remote_lines):
@@ -627,8 +701,16 @@ def switch_branch():
         branches_web = strip_ansi(branches_web_raw).splitlines()
         branches_api = strip_ansi(branches_api_raw).splitlines()
 
-        branch_list_web = {line.strip().replace("*", "").split("/")[-1]: line.strip() for line in branches_web if "HEAD" not in line}
-        branch_list_api = {line.strip().replace("*", "").split("/")[-1]: line.strip() for line in branches_api if "HEAD" not in line}
+        branch_list_web = {
+            line.strip().replace("*", "").split("/")[-1]: line.strip()
+            for line in branches_web
+            if "HEAD" not in line
+        }
+        branch_list_api = {
+            line.strip().replace("*", "").split("/")[-1]: line.strip()
+            for line in branches_api
+            if "HEAD" not in line
+        }
 
         # Get remotes
         remotes_web_raw = run_git_command(["remote", "-v"], cwd_web).splitlines()
@@ -663,7 +745,10 @@ def switch_branch():
                 subprocess.run(["git", "pull", remote_api, branch_api], cwd=cwd_api, check=True)
 
         except subprocess.CalledProcessError:
-            flash("Error switching branches. Make sure you have no local changes, or stash/commit them.", "error")
+            flash(
+                "Error switching branches. Make sure you have no local changes, or stash/commit them.",
+                "error",
+            )
             return redirect(url_for("settings.switch_branch"))
 
         return redirect(url_for("settings.switch_branch"))
@@ -684,7 +769,8 @@ def switch_branch():
         current_remote_api=current_remote_api,
     )
 
-@settings.route('/import', methods=['GET', 'POST'], endpoint='import')
+
+@settings.route("/import", methods=["GET", "POST"], endpoint="import")
 @login_required
 @admin_required
 def import_backup():
@@ -694,12 +780,13 @@ def import_backup():
         archive_data = form.import_file.data.read()
         fileobj = io.BytesIO(archive_data)
 
-        prefix = 'alarmdecoder-export'
+        prefix = "alarmdecoder-export"
 
         try:
-            with tarfile.open(mode='r:gz', fileobj=fileobj) as tar:
+            with tarfile.open(mode="r:gz", fileobj=fileobj) as tar:
                 # Get the EXPORT_MAP dynamically to avoid circular imports
                 from .constants import get_export_map
+
                 EXPORT_MAP = get_export_map()
 
                 for member in tar.getmembers():
@@ -714,24 +801,25 @@ def import_backup():
 
                 _import_refresh()
 
-                current_app.logger.info('Successfully imported backup file.')
-                flash('Import finished.', 'success')
+                current_app.logger.info("Successfully imported backup file.")
+                flash("Import finished.", "success")
 
-                return redirect(url_for('frontend.index'))
+                return redirect(url_for("frontend.index"))
 
         except (tarfile.ReadError, KeyError) as err:
-            current_app.logger.error('Import Error: {0}'.format(err))
-            flash('Import Failed: Not a valid AlarmDecoder archive.', 'error')
+            current_app.logger.error("Import Error: {0}".format(err))
+            flash("Import Failed: Not a valid AlarmDecoder archive.", "error")
 
         except (SQLAlchemyError, ValueError) as err:
             db.session.rollback()
 
-            current_app.logger.error('Import Error: {0}'.format(err))
-            flash('Import failed: {0}'.format(err), 'error')
+            current_app.logger.error("Import Error: {0}".format(err))
+            flash("Import failed: {0}".format(err), "error")
 
-    use_ssl = Setting.get_by_name('use_ssl', default=False).value
+    use_ssl = Setting.get_by_name("use_ssl", default=False).value
 
-    return render_template('settings/import.html', form=form, ssl=use_ssl)
+    return render_template("settings/import.html", form=form, ssl=use_ssl)
+
 
 def _import_model(tar, tarinfo, model):
     model.query.delete()
@@ -740,7 +828,7 @@ def _import_model(tar, tarinfo, model):
     items = json.loads(filedata)
 
     # If we're importing User, get it dynamically
-    is_user_model = model.__name__ == 'User'
+    is_user_model = model.__name__ == "User"
     if is_user_model:
         User, _, _, _ = get_user_related_constants()
 
@@ -748,111 +836,126 @@ def _import_model(tar, tarinfo, model):
         m = model()
         for k, v in itm.iteritems():
             if isinstance(model.__table__.columns[k].type, db.DateTime) and v is not None:
-                v = datetime.strptime(v, '%Y-%m-%d %H:%M:%S.%f')
+                v = datetime.strptime(v, "%Y-%m-%d %H:%M:%S.%f")
 
-            if k == 'password' and is_user_model:
-                setattr(m, '_password', v)
+            if k == "password" and is_user_model:
+                setattr(m, "_password", v)
             else:
                 setattr(m, k, v)
 
         db.session.add(m)
 
+
 def _import_refresh():
     from ..certificate import Certificate, CA, SERVER
-    config_path = Setting.get_by_name('ser2sock_config_path')
+
+    config_path = Setting.get_by_name("ser2sock_config_path")
     if config_path:
         kwargs = {}
 
-        kwargs['device_path'] = Setting.get_by_name('device_path', '/dev/serial0').value
-        kwargs['device_baudrate'] = Setting.get_by_name('device_baudrate', 115200).value
-        kwargs['device_port'] = Setting.get_by_name('device_port', 10000).value
-        kwargs['use_ssl'] = Setting.get_by_name('use_ssl', False).value
-        kwargs['raw_device_mode'] = Setting.get_by_name('raw_device_mode', 1).value
+        kwargs["device_path"] = Setting.get_by_name("device_path", "/dev/serial0").value
+        kwargs["device_baudrate"] = Setting.get_by_name("device_baudrate", 115200).value
+        kwargs["device_port"] = Setting.get_by_name("device_port", 10000).value
+        kwargs["use_ssl"] = Setting.get_by_name("use_ssl", False).value
+        kwargs["raw_device_mode"] = Setting.get_by_name("raw_device_mode", 1).value
 
-        if kwargs['use_ssl']:
-            kwargs['ca_cert'] = Certificate.query.filter_by(type=CA).first()
-            kwargs['server_cert'] = Certificate.query.filter_by(type=SERVER).first()
+        if kwargs["use_ssl"]:
+            kwargs["ca_cert"] = Certificate.query.filter_by(type=CA).first()
+            kwargs["server_cert"] = Certificate.query.filter_by(type=SERVER).first()
 
             Certificate.save_certificate_index()
             Certificate.save_revocation_list()
 
         ser2sock.update_config(config_path.value, **kwargs)
-        current_app.decoder.close()   # type: ignore[attr-defined]
-        current_app.decoder.init()    # type: ignore[attr-defined]
+        current_app.decoder.close()  # type: ignore[attr-defined]
+        current_app.decoder.init()  # type: ignore[attr-defined]
 
-@settings.route('/diagnostics', methods=['GET', 'POST'])
+
+@settings.route("/diagnostics", methods=["GET", "POST"])
 @login_required
 @admin_required
 def system_diagnostics():
-    device_settings = {'address': current_app.decoder.device.address,   # type: ignore[attr-defined]
-                       'configbits': hex(current_app.decoder.device.configbits).upper(),   # type: ignore[attr-defined]
-                       'address_mask': hex(current_app.decoder.device.address_mask).upper(),   # type: ignore[attr-defined]
-                       'emulate_zone': current_app.decoder.device.emulate_zone,   # type: ignore[attr-defined]
-                       'emulate_relay': current_app.decoder.device.emulate_relay,   # type: ignore[attr-defined]
-                       'emulate_lrr': current_app.decoder.device.emulate_lrr,   # type: ignore[attr-defined]
-                       'deduplicate': current_app.decoder.device.deduplicate,   # type: ignore[attr-defined]
-                       'firmware': current_app.decoder.device.version_number,   # type: ignore[attr-defined]
-                       'serial': current_app.decoder.device.serial_number.upper(),   # type: ignore[attr-defined]
-                       'flags': current_app.decoder.device.version_flags}    # type: ignore[attr-defined]
-    mode = current_app.decoder.device.mode   # type: ignore[attr-defined]
+    decoder = getattr(current_app, "decoder", None)
+    device = getattr(decoder, "device", None)
 
-    device_settings['mode'] = "ADEMCO"
-    if mode == DSC:
-        device_settings['mode'] = "DSC"
+    if not device:
+        flash("Decoder device is not initialized.", "error")
+        return redirect(url_for("settings.index"))
 
-    return render_template('settings/diagnostics.html', settings=device_settings)
+    device_settings = {
+        "address": device.address,
+        "configbits": hex(device.configbits).upper(),
+        "address_mask": hex(device.address_mask).upper(),
+        "emulate_zone": device.emulate_zone,
+        "emulate_relay": device.emulate_relay,
+        "emulate_lrr": device.emulate_lrr,
+        "deduplicate": device.deduplicate,
+        "firmware": device.version_number,
+        "serial": device.serial_number.upper(),
+        "flags": device.version_flags,
+        "mode": "DSC" if isinstance(device, DSC) else "ADEMCO",
+    }
 
-@settings.route('/advanced', methods=['GET'])
+    return render_template("settings/diagnostics.html", settings=device_settings)
+
+
+@settings.route("/advanced", methods=["GET"])
 @login_required
 @admin_required
 def advanced():
-    return render_template('settings/advanced.html', active="advanced")
+    return render_template("settings/advanced.html", active="advanced")
 
-@settings.route('/get_imports_list', methods=['GET', 'POST'])
+
+@settings.route("/get_imports_list", methods=["GET", "POST"])
 @login_required
 @admin_required
 def get_system_imports():
     imported = {}
     module_list = []
-    for module in sys.modules.keys():  #get list of all modules loaded into memory
-        module_name = module.split('.')[0] #everything left of a .
-        if module_name.find('_') == -1:  #ignore items containing _
-            if module_name not in module_list:  #unique module list
+    for module in sys.modules.keys():  # get list of all modules loaded into memory
+        module_name = module.split(".")[0]  # everything left of a .
+        if module_name.find("_") == -1:  # ignore items containing _
+            if module_name not in module_list:  # unique module list
                 module_list.append(module_name)
 
     module_list.sort()
-    for val in KNOWN_MODULES:  #see if module exists in known modules, try import if does, otherwise mark not found
+    for (
+        val
+    ) in (
+        KNOWN_MODULES
+    ):  # see if module exists in known modules, try import if does, otherwise mark not found
         found = 0
         if val in module_list:
             try:
-                importlib.import_module( val )
+                importlib.import_module(val)
                 found = 1
             except Exception:
                 found = 0
         else:
             found = 0
 
-        imported[val] = {'modname': val, 'found': found }
+        imported[val] = {"modname": val, "found": found}
 
-# this code block uses the .py parsing method below to try and find imports
-#    for d, f in pyfiles(os.getcwd()):
-#        if d.find("alembic") == -1:  #ignore the alembic directory
-#            imported[d + '/' + f] = parse_python_source(os.path.join(d,f))
+    # this code block uses the .py parsing method below to try and find imports
+    #    for d, f in pyfiles(os.getcwd()):
+    #        if d.find("alembic") == -1:  #ignore the alembic directory
+    #            imported[d + '/' + f] = parse_python_source(os.path.join(d,f))
 
     return json.dumps(imported)
 
-@settings.route('/disable_forward', methods=['GET', 'POST'])
+
+@settings.route("/disable_forward", methods=["GET", "POST"])
 @login_required
 @admin_required
 def disable_forwarding():
     if not has_upnp:
-        flash(u'Missing library: miniupnpc - install using pip', 'error')
-        return redirect(url_for('settings.index'))
+        flash("Missing library: miniupnpc - install using pip", "error")
+        return redirect(url_for("settings.index"))
 
-    current_external_port = Setting.get_by_name('upnp_external_port',default=None)
-    current_internal_port = Setting.get_by_name('upnp_internal_port',default=None)
+    current_external_port = Setting.get_by_name("upnp_external_port", default=None)
+    current_internal_port = Setting.get_by_name("upnp_internal_port", default=None)
     try:
-        upnp = UPNP(current_app.decoder)    # type: ignore[attr-defined]
+        upnp = UPNP(current_app.decoder)  # type: ignore[attr-defined]
         if current_external_port.value is not None:
             upnp.removePortForward(current_external_port.value)
             current_internal_port.value = None
@@ -862,13 +965,14 @@ def disable_forwarding():
             db.session.commit()
 
     except Exception as ex:
-        flash(u'Unable to remove port forward - {0}'.format(ex), 'error')
+        flash("Unable to remove port forward - {0}".format(ex), "error")
     else:
-        flash(u'Port Forward removed successfully.', 'info')
+        flash("Port Forward removed successfully.", "info")
 
-    return redirect(url_for('settings.index'))
+    return redirect(url_for("settings.index"))
 
-@settings.route('/port_forward', methods=['GET', 'POST'])
+
+@settings.route("/port_forward", methods=["GET", "POST"])
 @login_required
 @admin_required
 def port_forwarding():
@@ -877,47 +981,56 @@ def port_forwarding():
     internal_ip = "alarmdecoder.local"
     external_ip = get_external_ip()
 
-    current_internal_port = Setting.get_by_name('upnp_internal_port',default=None).value
-    current_external_port = Setting.get_by_name('upnp_external_port',default=None).value
+    current_internal_port = Setting.get_by_name("upnp_internal_port", default=None).value
+    current_external_port = Setting.get_by_name("upnp_external_port", default=None).value
     if not has_upnp:
-        flash(u'Missing library: miniupnpc - install using pip', 'error')
+        flash("Missing library: miniupnpc - install using pip", "error")
 
     if not form.is_submitted():
-        form.internal_port.data = Setting.get_by_name('upnp_internal_port',default=443).value
-        form.external_port.data = Setting.get_by_name('upnp_external_port',default=random.randint(1200,60000)).value
+        form.internal_port.data = Setting.get_by_name("upnp_internal_port", default=443).value
+        form.external_port.data = Setting.get_by_name(
+            "upnp_external_port", default=random.randint(1200, 60000)
+        ).value
 
     if form.validate_on_submit():
-        internal_port = Setting.get_by_name('upnp_internal_port')
+        internal_port = Setting.get_by_name("upnp_internal_port")
         internal_port.value = int(form.internal_port.data)
-        external_port = Setting.get_by_name('upnp_external_port')
+        external_port = Setting.get_by_name("upnp_external_port")
         external_port.value = int(form.external_port.data)
 
         if has_upnp:
             try:
-                upnp = UPNP(current_app.decoder)    # type: ignore[attr-defined]
+                upnp = UPNP(current_app.decoder)  # type: ignore[attr-defined]
 
-                #remove old bindings
+                # remove old bindings
                 if current_external_port is not None:
                     upnp.removePortForward(current_external_port)
 
-                #add new bindings
+                # add new bindings
                 upnp.addPortForward(internal_port.value, external_port.value)
             except Exception as ex:
-                flash(u'Error setting up port forwarding: {0}'.format(ex), 'error')
+                flash("Error setting up port forwarding: {0}".format(ex), "error")
             else:
-                flash(u'Port forwarding created successfully.', 'info')
-
+                flash("Port forwarding created successfully.", "info")
 
         else:
-            flash(u'Missing library: miniupnpc - install using pip', 'error')
+            flash("Missing library: miniupnpc - install using pip", "error")
 
         db.session.add(internal_port)
         db.session.add(external_port)
         db.session.commit()
 
-        return redirect(url_for('settings.index'))
+        return redirect(url_for("settings.index"))
 
-    return render_template('settings/port_forward.html', form=form, current_internal_port=current_internal_port, current_external_port=current_external_port, internal_ip=internal_ip, external_ip=external_ip)
+    return render_template(
+        "settings/port_forward.html",
+        form=form,
+        current_internal_port=current_internal_port,
+        current_external_port=current_external_port,
+        internal_ip=internal_ip,
+        external_ip=external_ip,
+    )
+
 
 def get_external_ip():
     try:
@@ -926,32 +1039,39 @@ def get_external_ip():
         context.verify_mode = ssl.CERT_NONE
 
         response = urlopen(IP_CHECK_SERVER_URL, context=context)
-        data = response.read().decode('utf-8')
-        my_ip = json.loads(data)['origin']
+        data = response.read().decode("utf-8")
+        my_ip = json.loads(data)["origin"]
     except Exception as e:
         current_app.logger.error(f"Failed to get external IP: {e}")
         return None
     return my_ip
 
-@settings.route('/configure_updater', methods=['GET', 'POST'])
+
+@settings.route("/configure_updater", methods=["GET", "POST"])
 @login_required
 @admin_required
 def configure_updater():
     form = VersionCheckerForm()
-    last_check_time = float(Setting.get_by_name('version_checker_last_check_time', default=time.time()).value)
+    last_check_time = float(
+        Setting.get_by_name("version_checker_last_check_time", default=time.time()).value
+    )
 
     if not form.is_submitted():
-        form.version_checker_timeout.data = Setting.get_by_name('version_checker_timeout',default=600).value
-        form.version_checker_disable.data = Setting.get_by_name('version_checker_disable',default=False).value
+        form.version_checker_timeout.data = Setting.get_by_name(
+            "version_checker_timeout", default=600
+        ).value
+        form.version_checker_disable.data = Setting.get_by_name(
+            "version_checker_disable", default=False
+        ).value
 
     if form.validate_on_submit():
         timeout = form.version_checker_timeout.data
         disable = form.version_checker_disable.data
 
-        version_checker_timeout = Setting.get_by_name('version_checker_timeout')
+        version_checker_timeout = Setting.get_by_name("version_checker_timeout")
         version_checker_timeout.value = int(timeout)
 
-        version_checker_disable = Setting.get_by_name('version_checker_disable')
+        version_checker_disable = Setting.get_by_name("version_checker_disable")
         version_checker_disable.value = disable
         current_app.decoder.configure_version_thread(timeout, disable)
         db.session.add(version_checker_disable)
@@ -959,28 +1079,34 @@ def configure_updater():
 
         db.session.commit()
 
-        flash('Update settings updated.', 'success')
-        return redirect(url_for('settings.index'))
+        flash("Update settings updated.", "success")
+        return redirect(url_for("settings.index"))
 
-    last_check = datetime.fromtimestamp(last_check_time).strftime('%m-%d-%Y %H:%M:%S')
-    return render_template('settings/updater_config.html', active="advanced", form=form, last_check=last_check)
+    last_check = datetime.fromtimestamp(last_check_time).strftime("%m-%d-%Y %H:%M:%S")
+    return render_template(
+        "settings/updater_config.html", active="advanced", form=form, last_check=last_check
+    )
 
 
-@settings.route('/configure_system_email', methods=['GET', 'POST'])
+@settings.route("/configure_system_email", methods=["GET", "POST"])
 @login_required
 @admin_required
 def configure_system_email():
     form = EmailConfigureForm()
 
-    #populate unsubmitted form with db values if they exist
+    # populate unsubmitted form with db values if they exist
     if not form.is_submitted():
-        form.mail_server.data = Setting.get_by_name('system_email_server', default='localhost').value
-        form.port.data = Setting.get_by_name('system_email_port', default=25).value
-        form.tls.data = Setting.get_by_name('system_email_tls', default=False).value
-        form.auth_required.data = Setting.get_by_name('system_email_auth',default=False).value
-        form.username.data = Setting.get_by_name('system_email_username').value
-        form.password.data = Setting.get_by_name('system_email_password').value
-        form.default_sender.data = Setting.get_by_name('system_email_from', default='root@alarmdecoder').value
+        form.mail_server.data = Setting.get_by_name(
+            "system_email_server", default="localhost"
+        ).value
+        form.port.data = Setting.get_by_name("system_email_port", default=25).value
+        form.tls.data = Setting.get_by_name("system_email_tls", default=False).value
+        form.auth_required.data = Setting.get_by_name("system_email_auth", default=False).value
+        form.username.data = Setting.get_by_name("system_email_username").value
+        form.password.data = Setting.get_by_name("system_email_password").value
+        form.default_sender.data = Setting.get_by_name(
+            "system_email_from", default="root@alarmdecoder"
+        ).value
 
     if form.validate_on_submit():
         email_server = form.mail_server.data
@@ -991,19 +1117,19 @@ def configure_system_email():
         email_from = form.default_sender.data
         email_auth = form.auth_required.data
 
-        system_email_server = Setting.get_by_name('system_email_server')
+        system_email_server = Setting.get_by_name("system_email_server")
         system_email_server.value = email_server
-        system_email_port = Setting.get_by_name('system_email_port')
+        system_email_port = Setting.get_by_name("system_email_port")
         system_email_port.value = email_port
-        system_email_tls = Setting.get_by_name('system_email_tls')
+        system_email_tls = Setting.get_by_name("system_email_tls")
         system_email_tls.value = email_tls
-        system_email_username = Setting.get_by_name('system_email_username')
+        system_email_username = Setting.get_by_name("system_email_username")
         system_email_username.value = email_username
-        system_email_password = Setting.get_by_name('system_email_password')
+        system_email_password = Setting.get_by_name("system_email_password")
         system_email_password.value = email_password
-        system_email_from = Setting.get_by_name('system_email_from')
+        system_email_from = Setting.get_by_name("system_email_from")
         system_email_from.value = email_from
-        system_email_auth = Setting.get_by_name('system_email_auth')
+        system_email_auth = Setting.get_by_name("system_email_auth")
         system_email_auth.value = email_auth
 
         db.session.add(system_email_server)
@@ -1016,13 +1142,14 @@ def configure_system_email():
 
         db.session.commit()
 
-        flash('System Email settings updated.', 'success')
-        return redirect(url_for('settings.index'))
+        flash("System Email settings updated.", "success")
+        return redirect(url_for("settings.index"))
 
-    return render_template('settings/system_email.html', active="advanced", form=form)
+    return render_template("settings/system_email.html", active="advanced", form=form)
 
-#below code used to parse .py files and find imported modules - currently does not catch things that are straight imports only froms
-#leaving in case we want to improve and use
+
+# below code used to parse .py files and find imported modules - currently does not catch things that are straight imports only froms
+# leaving in case we want to improve and use
 def pyfiles(startPath):
     r = []
     d = os.path.abspath(startPath)
@@ -1030,78 +1157,79 @@ def pyfiles(startPath):
         for root, dirs, files in os.walk(d):
             for f in files:
                 n, ext = os.path.splitext(f)
-                if ext == '.py':
+                if ext == ".py":
                     r.append([root, f])
 
     return r
 
+
 class ImportVisitor(object):
+    def __init__(self):
+        self.modules = []
+        self.recent = []
+        self.exists = []
+
+    def visitImport(self, node):
+        self.accept_imports()
+
+        mod = {}
+        for x in node.names:
+            mod["modname"] = x[0]
+            mod["importname"] = None
+            mod["viewname"] = x[1] or x[0]
+            mod["lineno"] = node.lineno
+            mod["level"] = 0
+
+            exist = {"modname": x[0], "importname": None}
+            if exist not in self.exists:
+                self.recent.append(mod)
+                self.exists.append(exist)
+
+    def visitFrom(self, node):
+        self.accept_imports()
+        modname = node.modname
+        if modname == "__future__":
+            return  # ignore!
+
+        # module name, import name, view name, line number of script, level
+        mod = {}
+        for name, as_ in node.names:
+            if name == "*":
+                mod["modname"] = modname
+                mod["importname"] = None
+                mod["viewname"] = None
+                mod["lineno"] = node.lineno
+                mod["level"] = node.level
+            else:
+                mod["modname"] = modname
+                mod["importname"] = name
+                mod["viewname"] = as_ or name
+                mod["lineno"] = node.lineno
+                mod["level"] = node.level
+
+            exist = {"modname": mod["modname"], "importname": mod["importname"]}
+
+            if exist not in self.exists:
+                self.recent.append(mod)
+                self.exists.append(exist)
+
+    class MyVisitor(ast.NodeVisitor):
         def __init__(self):
-            self.modules = []
-            self.recent = []
-            self.exists = []
+            self.recent = True  # example value
 
-        def visitImport(self, node):
-            self.accept_imports()
+        def visit_Expr(self, node):
+            if self.recent:
+                if isinstance(node.value, ast.Constant):
+                    # Do something specific here if needed
+                    pass
 
-            mod = {}
-            for x in node.names:
-                mod['modname'] = x[0]
-                mod['importname'] = None
-                mod['viewname'] = x[1] or x[0]
-                mod['lineno'] = node.lineno
-                mod['level'] = 0
+            self.generic_visit(node)
 
-                exist = {'modname': x[0], 'importname': None}
-                if exist not in self.exists:
-                    self.recent.append(mod)
-                    self.exists.append(exist)
+    def accept_imports(self):
+        for item in self.recent:
+            self.modules.append(item)
+        self.recent = []
 
-        def visitFrom(self, node):
-            self.accept_imports()
-            modname = node.modname
-            if modname == '__future__':
-                return  #ignore!
-
-            #module name, import name, view name, line number of script, level
-            mod = {}
-            for name, as_ in node.names:
-                if name == '*':
-                    mod['modname'] = modname
-                    mod['importname'] = None
-                    mod['viewname'] = None
-                    mod['lineno'] = node.lineno
-                    mod['level'] = node.level
-                else:
-                    mod['modname'] = modname
-                    mod['importname'] = name
-                    mod['viewname'] = as_ or name
-                    mod['lineno'] = node.lineno
-                    mod['level'] = node.level
-
-                exist = {'modname': mod['modname'], 'importname': mod['importname'] }
-
-                if exist not in self.exists:
-                    self.recent.append(mod)
-                    self.exists.append(exist)
-
-        class MyVisitor(ast.NodeVisitor):
-            def __init__(self):
-                self.recent = True  # example value
-
-            def visit_Expr(self, node):
-                if self.recent:
-                    if isinstance(node.value, ast.Constant):
-                        # Do something specific here if needed
-                        pass
-
-                self.generic_visit(node)
-
-        def accept_imports(self):
-            for item in self.recent:
-                self.modules.append(item)
-            self.recent = []
-
-        def finalize(self):
-            self.accept_imports()
-            return self.modules
+    def finalize(self):
+        self.accept_imports()
+        return self.modules

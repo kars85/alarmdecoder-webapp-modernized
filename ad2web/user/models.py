@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-#/user/models.py
+# /user/models.py
 from sqlalchemy import Column, types
 from sqlalchemy.ext.mutable import Mutable
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -9,10 +9,12 @@ from ..extensions import db
 from ..utils import get_current_time, SEX_TYPE, STRING_LEN
 from .constants import USER, ADMIN, INACTIVE
 
+
 # Function to dynamically import User and related constants
 def get_user_related_constants():
-    user_module = importlib.import_module('ad2web.user')
+    user_module = importlib.import_module("ad2web.user")
     return user_module.User, user_module.USER_ROLE, user_module.USER_STATUS, user_module.ADMIN
+
 
 class DenormalizedText(Mutable, types.TypeDecorator):
     """
@@ -50,7 +52,7 @@ class DenormalizedText(Mutable, types.TypeDecorator):
 
 
 class UserHistory(db.Model):
-    __tablename__ = 'user_history'
+    __tablename__ = "user_history"
 
     id = Column(db.Integer, primary_key=True)
     ip_address = Column(db.String(STRING_LEN))
@@ -58,8 +60,9 @@ class UserHistory(db.Model):
     login_time = Column(db.DateTime, default=get_current_time)
     user_agent_string = Column(db.String(STRING_LEN))
 
+
 class FailedLogin(db.Model):
-    __tablename__ = 'failed_login_attempts'
+    __tablename__ = "failed_login_attempts"
 
     id = Column(db.Integer, primary_key=True)
     ip_address = Column(db.String(STRING_LEN))
@@ -67,9 +70,10 @@ class FailedLogin(db.Model):
     login_time = Column(db.DateTime, default=get_current_time)
     user_agent_string = Column(db.String(STRING_LEN))
 
+
 class UserDetail(db.Model):
 
-    __tablename__ = 'user_details'
+    __tablename__ = "user_details"
 
     id = Column(db.Integer, primary_key=True)
     age = Column(db.Integer)
@@ -90,7 +94,7 @@ class UserDetail(db.Model):
 
 class User(db.Model, UserMixin):
 
-    __tablename__ = 'users'
+    __tablename__ = "users"
 
     id = Column(db.Integer, primary_key=True)
     name = Column(db.String(STRING_LEN), nullable=False, unique=True)
@@ -100,21 +104,24 @@ class User(db.Model, UserMixin):
     created_time = Column(db.DateTime, default=get_current_time)
 
     avatar = Column(db.String(STRING_LEN))
-    certificates = db.relationship("Certificate", backref="user", cascade='all, delete-orphan')
-    notifications = db.relationship("Notification", backref="user", cascade='all, delete-orphan')
+    certificates = db.relationship("Certificate", backref="user", cascade="all, delete-orphan")
+    notifications = db.relationship("Notification", backref="user", cascade="all, delete-orphan")
 
-    _password = Column('password', db.String(STRING_LEN), nullable=False)
+    _password = Column("password", db.String(STRING_LEN), nullable=False)
 
     def _get_password(self):
         return self._password
 
     def _set_password(self, password):
         self._password = generate_password_hash(password)
+
     # Hide password encryption by exposing password field only.
-    password = db.synonym('_password',
-                          descriptor=property(
-                              lambda self: self._get_password(),
-                              lambda self, value: self._set_password(value)))
+    password = db.synonym(
+        "_password",
+        descriptor=property(
+            lambda self: self._get_password(), lambda self, value: self._set_password(value)
+        ),
+    )
 
     def check_password(self, password):
         User, USER_ROLE, USER_STATUS, ADMIN = get_user_related_constants()
@@ -197,11 +204,13 @@ class User(db.Model, UserMixin):
     def search(cls, keywords):
         criteria = []
         for keyword in keywords.split():
-            keyword = '%' + keyword + '%'
-            criteria.append(db.or_(
-                User.name.ilike(keyword),
-                User.email.ilike(keyword),
-            ))
+            keyword = "%" + keyword + "%"
+            criteria.append(
+                db.or_(
+                    User.name.ilike(keyword),
+                    User.email.ilike(keyword),
+                )
+            )
         q = reduce(db.and_, criteria)
         return cls.query.filter(q)
 

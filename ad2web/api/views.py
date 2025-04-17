@@ -11,14 +11,18 @@ from flask import (
 from flask_login import login_required, current_user
 
 from ..extensions import db
+
 # from ..user import User # Assuming User model isn't directly needed here
 from ..settings.models import Setting
 from alarmdecoder.panels import ADEMCO, DSC
-from alarmdecoder import AlarmDecoder # Used for constants like KEY_F*
-from ad2web.keypad.forms import KeypadButtonForm # Renamed 'ad2web.keypad' to relative '.'
-from ad2web.keypad.models import KeypadButton # Renamed 'ad2web.keypad' to relative '.'
-from ad2web.keypad.forms import SpecialButtonFormAdemco, SpecialButtonFormDSC # Renamed 'ad2web.keypad' to relative '.'
-from ad2web.keypad.constants import ( # Renamed 'ad2web.keypad' to relative '.'
+from alarmdecoder import AlarmDecoder  # Used for constants like KEY_F*
+from ad2web.keypad.forms import KeypadButtonForm  # Renamed 'ad2web.keypad' to relative '.'
+from ad2web.keypad.models import KeypadButton  # Renamed 'ad2web.keypad' to relative '.'
+from ad2web.keypad.forms import (
+    SpecialButtonFormAdemco,
+    SpecialButtonFormDSC,
+)  # Renamed 'ad2web.keypad' to relative '.'
+from ad2web.keypad.constants import (  # Renamed 'ad2web.keypad' to relative '.'
     FIRE,
     MEDICAL,
     POLICE,
@@ -34,7 +38,7 @@ from ad2web.keypad.constants import ( # Renamed 'ad2web.keypad' to relative '.'
 
 # Defined blueprint - assuming this is keypad, not api
 keypad = Blueprint("keypad", __name__, url_prefix="/keypad")
-api = Blueprint('api', __name__)
+api = Blueprint("api", __name__)
 
 
 # Helper function to get panel mode consistently
@@ -42,7 +46,9 @@ def _get_panel_mode():
     # Provide a default if the setting doesn't exist yet during initial setup
     return Setting.get_by_name("panel_mode", default=ADEMCO).value
 
+
 # --- Routes ---
+
 
 @keypad.route("/")
 @login_required
@@ -60,12 +66,13 @@ def index():
         template_name,
         buttons=custom_buttons,
         # special_buttons=special_buttons_data, # Pass if needed by template
-        panel_mode=panel_mode # Pass panel_mode to the template
+        panel_mode=panel_mode,  # Pass panel_mode to the template
     )
+
 
 @keypad.route("/legacy")
 @login_required
-def responsive(): # Consider renaming to legacy_keypad if 'responsive' isn't accurate
+def responsive():  # Consider renaming to legacy_keypad if 'responsive' isn't accurate
     """Renders the legacy keypad interface."""
     panel_mode = _get_panel_mode()
     custom_buttons = KeypadButton.query.filter_by(user_id=current_user.id).all()
@@ -90,6 +97,7 @@ def custom_index():
         # ssl=use_ssl # Pass if needed
     )
 
+
 @keypad.route("/specials", methods=["GET", "POST"])
 @login_required
 def special_buttons():
@@ -104,21 +112,25 @@ def special_buttons():
         # --- Refactored Processing Block (Fixes Duplication Warning around line 177) ---
         buttons_to_process = []
         # Always process buttons 1-4
-        buttons_to_process.extend([
-            ("special_1", form.special_1, form.special_1_key),
-            ("special_2", form.special_2, form.special_2_key),
-            ("special_3", form.special_3, form.special_3_key),
-            ("special_4", form.special_4, form.special_4_key),
-        ])
+        buttons_to_process.extend(
+            [
+                ("special_1", form.special_1, form.special_1_key),
+                ("special_2", form.special_2, form.special_2_key),
+                ("special_3", form.special_3, form.special_3_key),
+                ("special_4", form.special_4, form.special_4_key),
+            ]
+        )
 
         # Add DSC-specific buttons if applicable
         if panel_mode == DSC:
-            buttons_to_process.extend([
-                ("special_5", form.special_5, form.special_5_key),
-                ("special_6", form.special_6, form.special_6_key),
-                ("special_7", form.special_7, form.special_7_key),
-                ("special_8", form.special_8, form.special_8_key),
-            ])
+            buttons_to_process.extend(
+                [
+                    ("special_5", form.special_5, form.special_5_key),
+                    ("special_6", form.special_6, form.special_6_key),
+                    ("special_7", form.special_7, form.special_7_key),
+                    ("special_8", form.special_8, form.special_8_key),
+                ]
+            )
 
         settings_to_save = []
         for key_name, type_field, key_field in buttons_to_process:
@@ -135,9 +147,9 @@ def special_buttons():
         flash("Special buttons updated successfully.", "success")
         return redirect(url_for("keypad.custom_index"))
 
-    elif not form.is_submitted(): # Populate form on GET request
+    elif not form.is_submitted():  # Populate form on GET request
         # --- Refactored Population Block (Addresses logic, not a specific warning) ---
-        buttons_data = get_special_buttons() # Fetch current settings
+        buttons_data = get_special_buttons()  # Fetch current settings
 
         fields_to_populate = [
             ("special_1", "special_1_key"),
@@ -146,17 +158,19 @@ def special_buttons():
             ("special_4", "special_4_key"),
         ]
         if panel_mode == DSC:
-             fields_to_populate.extend([
-                ("special_5", "special_5_key"),
-                ("special_6", "special_6_key"),
-                ("special_7", "special_7_key"),
-                ("special_8", "special_8_key"),
-             ])
+            fields_to_populate.extend(
+                [
+                    ("special_5", "special_5_key"),
+                    ("special_6", "special_6_key"),
+                    ("special_7", "special_7_key"),
+                    ("special_8", "special_8_key"),
+                ]
+            )
 
         for type_key, key_key in fields_to_populate:
-             # Use getattr to access form fields dynamically
-             getattr(form, type_key).data = buttons_data.get(type_key)
-             getattr(form, key_key).data = buttons_data.get(key_key)
+            # Use getattr to access form fields dynamically
+            getattr(form, type_key).data = buttons_data.get(type_key)
+            getattr(form, key_key).data = buttons_data.get(key_key)
         # --- End Refactored Block ---
 
     # If form validation fails on POST, render the form with errors
@@ -170,7 +184,7 @@ def create_button():
     form = KeypadButtonForm()
 
     if form.validate_on_submit():
-        button = KeypadButton(user_id=current_user.id) # Set user_id on creation
+        button = KeypadButton(user_id=current_user.id)  # Set user_id on creation
         form.populate_obj(button)
         # Ensure label field is handled if different from 'text' in form
         # button.label = form.text.data # Assuming form field name matches model or handled by populate_obj
@@ -188,10 +202,12 @@ def create_button():
 # Fixes Shadowing built-in 'id' (lines 326, 347)
 @keypad.route("/edit/<int:button_id>", methods=["GET", "POST"])
 @login_required
-def edit_button(button_id): # Renamed parameter
+def edit_button(button_id):  # Renamed parameter
     """Handles editing an existing custom keypad button."""
     # Query using the renamed parameter
-    button = KeypadButton.query.filter_by(button_id=button_id, user_id=current_user.id).first_or_404()
+    button = KeypadButton.query.filter_by(
+        button_id=button_id, user_id=current_user.id
+    ).first_or_404()
     form = KeypadButtonForm(obj=button)
 
     if form.validate_on_submit():
@@ -199,7 +215,7 @@ def edit_button(button_id): # Renamed parameter
         # user_id is already set and shouldn't change on edit unless intended
         # button.user_id = current_user.id
 
-        db.session.add(button) # or db.session.merge(button)
+        db.session.add(button)  # or db.session.merge(button)
         db.session.commit()
 
         flash("Keypad Button Updated", "success")
@@ -212,12 +228,14 @@ def edit_button(button_id): # Renamed parameter
 
 
 # Fixes Shadowing built-in 'id' (lines 326, 347)
-@keypad.route("/remove/<int:button_id>", methods=["POST"]) # Use POST for destructive actions
+@keypad.route("/remove/<int:button_id>", methods=["POST"])  # Use POST for destructive actions
 @login_required
-def remove_button(button_id): # Renamed parameter
+def remove_button(button_id):  # Renamed parameter
     """Handles removal of a custom keypad button."""
     # Query using the renamed parameter, ensure user owns the button
-    button = KeypadButton.query.filter_by(button_id=button_id, user_id=current_user.id).first_or_404()
+    button = KeypadButton.query.filter_by(
+        button_id=button_id, user_id=current_user.id
+    ).first_or_404()
 
     db.session.delete(button)
     db.session.commit()
@@ -227,6 +245,7 @@ def remove_button(button_id): # Renamed parameter
 
 
 # --- Helper Functions ---
+
 
 def get_special_buttons():
     """Retrieves current special button configurations from settings."""
@@ -243,7 +262,7 @@ def get_special_buttons():
 
     if panel_mode == ADEMCO:
         panel_specific_buttons = [("special_4", SPECIAL_4)]
-    else: # DSC
+    else:  # DSC
         panel_specific_buttons = [
             ("special_4", STAY),
             ("special_5", AWAY),
@@ -256,13 +275,13 @@ def get_special_buttons():
     for key_base, default_type in common_buttons + panel_specific_buttons:
         button_type = get_special_setting(key_base, default_type)
         button_key_name = f"{key_base}_key"
-        default_key = SPECIAL_KEY_MAP.get(button_type, "") # Get default key based on current type
+        default_key = SPECIAL_KEY_MAP.get(button_type, "")  # Get default key based on current type
 
         buttons_config[key_base] = button_type
         # Get specific key setting, defaulting to the map lookup
         buttons_config[button_key_name] = get_special_setting(button_key_name, default_key)
 
-    return buttons_config # Renamed return variable
+    return buttons_config  # Renamed return variable
 
 
 def get_special_setting(key, setting_default):
@@ -270,11 +289,11 @@ def get_special_setting(key, setting_default):
     # Ensure default is handled correctly if value is None or setting doesn't exist
     setting = Setting.query.filter_by(name=key).first()
     if setting and setting.value is not None:
-         # Attempt to coerce to int if possible, otherwise return as stored
-         try:
-             return int(setting.value)
-         except (ValueError, TypeError):
-             return setting.value
+        # Attempt to coerce to int if possible, otherwise return as stored
+        try:
+            return int(setting.value)
+        except (ValueError, TypeError):
+            return setting.value
     # Return the provided default if no setting exists or value is None
     return setting_default
 
@@ -282,32 +301,32 @@ def get_special_setting(key, setting_default):
 def create_special_setting(key_number, key_value):
     """Prepares a Setting object for a special button type (without saving)."""
     special_setting = Setting.get_by_name(key_number)
-    if special_setting is None: # Create if doesn't exist
-        special_setting = Setting(name=key_number, value=str(key_value)) # Store as string
+    if special_setting is None:  # Create if doesn't exist
+        special_setting = Setting(name=key_number, value=str(key_value))  # Store as string
     else:
-        special_setting.value = str(key_value) # Ensure value is stored as string
+        special_setting.value = str(key_value)  # Ensure value is stored as string
     return special_setting
 
 
 def create_special_setting_key(special_setting_type_obj, key_type_name, key_value):
     """Prepares a Setting object for a special button key (without saving)."""
     special_setting_key = Setting.get_by_name(key_type_name)
-    if special_setting_key is None: # Create if doesn't exist
-         special_setting_key = Setting(name=key_type_name)
+    if special_setting_key is None:  # Create if doesn't exist
+        special_setting_key = Setting(name=key_type_name)
 
     # Determine the correct key value based on whether it's custom
     # Use the already fetched type value from the special_setting_type_obj
     try:
         button_type_value = int(special_setting_type_obj.value)
     except (ValueError, TypeError):
-        button_type_value = None # Handle cases where value isn't an int
+        button_type_value = None  # Handle cases where value isn't an int
 
     if button_type_value != SPECIAL_CUSTOM:
         # Use the mapped value if type is not custom
         special_setting_key.value = SPECIAL_KEY_MAP.get(button_type_value, str(key_value))
     else:
         # Use the provided key_value if type is custom
-        special_setting_key.value = str(key_value) # Ensure stored as string
+        special_setting_key.value = str(key_value)  # Ensure stored as string
 
     return special_setting_key
 

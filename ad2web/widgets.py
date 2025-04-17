@@ -6,28 +6,30 @@ from markupsafe import Markup
 class ButtonWidget(object):
     html_params = staticmethod(html_params)
 
-    def __init__(self, text='', onclick='', **kwargs):
+    def __init__(self, text="", onclick="", **kwargs):
         self.text = text
         self.onclick = onclick
         self.extra_attrs = kwargs
 
-
     def __call__(self, field, **kwargs):
-        kwargs.setdefault('id', field.id)
+        kwargs.setdefault("id", field.id)
 
-        if 'onclick' not in kwargs:
-            kwargs['onclick'] = self.onclick
+        if "onclick" not in kwargs:
+            kwargs["onclick"] = self.onclick
 
-        return Markup('<button type="button" class="btn btn-default" {0}>{1}</button>'.format(self.html_params(name=field.name, **kwargs), self.text))
+        return Markup(
+            '<button type="button" class="btn btn-default" {0}>{1}</button>'.format(
+                self.html_params(name=field.name, **kwargs), self.text
+            )
+        )
 
 
 class ButtonField(Field):
     widget = ButtonWidget()
 
-    def __init__(self, label='', validators=None, onclick='', **kwargs):
+    def __init__(self, label="", validators=None, onclick="", **kwargs):
         super().__init__(label, validators, **kwargs)
         self.widget = ButtonWidget(text=label, onclick=onclick)
-
 
 
 class MultiCheckboxField(SelectMultipleField):
@@ -37,5 +39,6 @@ class MultiCheckboxField(SelectMultipleField):
     Iterating the field will produce subfields, allowing custom rendering of
     the enclosed checkbox fields.
     """
+
     widget = ListWidget(prefix_label=True)
     option_widget = CheckboxInput()

@@ -6,7 +6,7 @@ from ..extensions import db
 
 
 class Zone(db.Model):
-    __tablename__ = 'zones'
+    __tablename__ = "zones"
 
     id = Column(db.Integer, primary_key=True)
     zone_id = Column(db.Integer, unique=True, nullable=False)

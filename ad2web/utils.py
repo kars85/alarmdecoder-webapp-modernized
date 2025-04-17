@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-    Utils has nothing to do with models and views.
+Utils has nothing to do with models and views.
 """
 
 import string
@@ -14,9 +14,9 @@ from datetime import datetime, timezone
 
 
 # Instance folder path, make it independent.
-INSTANCE_FOLDER_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'instance'))
-LOG_FOLDER = os.path.join(INSTANCE_FOLDER_PATH, 'logs')
-ALLOWED_AVATAR_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+INSTANCE_FOLDER_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "instance"))
+LOG_FOLDER = os.path.join(INSTANCE_FOLDER_PATH, "logs")
+ALLOWED_AVATAR_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 
 
 # Form validation
@@ -41,9 +41,9 @@ MALE = 1
 FEMALE = 2
 OTHER = 9
 SEX_TYPE = {
-    MALE: 'Male',
-    FEMALE: 'Female',
-    OTHER: 'Other',
+    MALE: "Male",
+    FEMALE: "Female",
+    OTHER: "Other",
 }
 
 # Model
@@ -62,19 +62,19 @@ def pretty_date(dt, default=None):
     """
 
     if default is None:
-        default = 'just now'
+        default = "just now"
 
     now = datetime.now(timezone.utc)
     diff = now - dt
 
     periods = (
-        (diff.days // 365, 'year', 'years'),
-        (diff.days // 30, 'month', 'months'),
-        (diff.days // 7, 'week', 'weeks'),
-        (diff.days,  'day', 'days'),
-        (diff.seconds // 3600, 'hour', 'hours'),
-        (diff.seconds // 60, 'minute', 'minutes'),
-        (diff.seconds, 'second', 'seconds'),
+        (diff.days // 365, "year", "years"),
+        (diff.days // 30, "month", "months"),
+        (diff.days // 7, "week", "weeks"),
+        (diff.days, "day", "days"),
+        (diff.seconds // 3600, "hour", "hours"),
+        (diff.seconds // 60, "minute", "minutes"),
+        (diff.seconds, "second", "seconds"),
     )
 
     for period, singular, plural in periods:
@@ -82,20 +82,20 @@ def pretty_date(dt, default=None):
             continue
 
         if period == 1:
-            return '%d %s ago' % (period, singular)
+            return "%d %s ago" % (period, singular)
         else:
-            return '%d %s ago' % (period, plural)
+            return "%d %s ago" % (period, plural)
 
     return default
 
 
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1] in ALLOWED_AVATAR_EXTENSIONS
+    return "." in filename and filename.rsplit(".", 1)[1] in ALLOWED_AVATAR_EXTENSIONS
 
 
 def id_generator(size=10, chars=string.ascii_letters + string.digits):
-    #return base64.urlsafe_b64encode(os.urandom(size))
-    return ''.join(random.choice(chars) for _ in range(size))
+    # return base64.urlsafe_b64encode(os.urandom(size))
+    return "".join(random.choice(chars) for _ in range(size))
 
 
 def make_dir(dir_path):
@@ -124,7 +124,7 @@ def tar_add_textfile(tar, name, data, parent_path=None):
     ti.size = len(data)
 
     if isinstance(data, str):
-        data = data.encode('ascii')  # ensure bytes
+        data = data.encode("ascii")  # ensure bytes
 
     tar.addfile(ti, io.BytesIO(data))
 

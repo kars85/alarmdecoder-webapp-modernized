@@ -4,6 +4,7 @@ import json
 from urllib.request import urlopen
 from typing import Tuple
 import platform
+
 try:
     if platform.system() != "Windows":
         import sh
@@ -22,17 +23,19 @@ from alarmdecoder.util.firmware import Firmware
 from .constants import FIRMWARE_JSON_URL
 
 try:
-    current_app._get_current_object()   # type: ignore[attr-defined]
+    current_app._get_current_object()  # type: ignore[attr-defined]
     running_in_context = True
 except RuntimeError:
     running_in_context = False
+
 
 def _print(*args, **kwargs):
     fmt, arguments = args[0], args[1:]
     print(fmt.format(*arguments))
 
+
 def _log(*args, **kwargs):
-    logLevel = kwargs.pop('logLevel', logging.INFO)
+    logLevel = kwargs.pop("logLevel", logging.INFO)
 
     if running_in_context:
         current_app.logger.log(logLevel, *args, **kwargs)
@@ -44,15 +47,22 @@ class Updater(object):
     """
     The primary update system
     """
+
     def __init__(self):
         """
         Constructor
         """
-        self._components = {'AlarmDecoderWebapp': WebappUpdater('AlarmDecoderWebapp',
-                                                                project_url='https://github.com/nutechsoftware/alarmdecoder-webapp'),
-                            'AlarmDecoderLibrary': SourceUpdater('AlarmDecoderLibrary',
-                                                                 project_url='https://github.com/nutechsoftware/alarmdecoder',
-                                                                 path=current_app.config['ALARMDECODER_LIBRARY_PATH'])}
+        self._components = {
+            "AlarmDecoderWebapp": WebappUpdater(
+                "AlarmDecoderWebapp",
+                project_url="https://github.com/nutechsoftware/alarmdecoder-webapp",
+            ),
+            "AlarmDecoderLibrary": SourceUpdater(
+                "AlarmDecoderLibrary",
+                project_url="https://github.com/nutechsoftware/alarmdecoder",
+                path=current_app.config["ALARMDECODER_LIBRARY_PATH"],
+            ),
+        }
         # TODO: ser2sock goes here, if installed from source.
 
     def check_updates(self):
@@ -65,7 +75,14 @@ class Updater(object):
 
         for name, component in self._components.items():
             component.refresh()
-            status[name] = (component.needs_update, component.branch, component.local_revision, component.remote_revision, component.status, component.project_url)
+            status[name] = (
+                component.needs_update,
+                component.branch,
+                component.local_revision,
+                component.remote_revision,
+                component.status,
+                component.project_url,
+            )
 
         return status
 
@@ -78,15 +95,15 @@ class Updater(object):
 
         ret = False
 
-        if version is not None and version != '':
+        if version is not None and version != "":
             data = None
             version = version[1:]
             try:
                 response = urlopen(FIRMWARE_JSON_URL)
                 data = json.loads(response.read())
-                for firmware in data['firmware']:
-                    if firmware['tag'] == "Stable":
-                        if version != firmware['version']:
+                for firmware in data["firmware"]:
+                    if firmware["tag"] == "Stable":
+                        if version != firmware["version"]:
                             ret = True
                         else:
                             ret = False
@@ -108,7 +125,7 @@ class Updater(object):
         """
         ret = {}
 
-        _log('Starting update process..')
+        _log("Starting update process..")
 
         if component_name is not None:
             component = self._components[component_name]
@@ -118,7 +135,7 @@ class Updater(object):
                 if component.needs_update:
                     ret[name] = component.update()
 
-        _log('Update process finished.')
+        _log("Update process finished.")
 
         return ret
 
@@ -138,10 +155,12 @@ class WebappUpdater(object):
 
         self.name = name
         self.project_url = project_url
-        #self._enabled, self._status = self._check_enabled()
+        # self._enabled, self._status = self._check_enabled()
         self._enabled = True
 
-        self._source_updater = SourceUpdater('AlarmDecoderWebapp', project_url=project_url, path=None)
+        self._source_updater = SourceUpdater(
+            "AlarmDecoderWebapp", project_url=project_url, path=None
+        )
         self._db_updater = DBUpdater()
 
     @property
@@ -182,10 +201,10 @@ class WebappUpdater(object):
 
     @property
     def version(self):
-        version = ''
+        version = ""
 
         try:
-            version = sh.git('describe', tags=True, always=True, long=True)
+            version = sh.git("describe", tags=True, always=True, long=True)
         except Exception:
             pass
 
@@ -208,12 +227,12 @@ class WebappUpdater(object):
 
         :returns: Returns the update results
         """
-        _log('WebappUpdater: starting..')
+        _log("WebappUpdater: starting..")
 
-        ret = { 'status': 'FAIL', 'restart_required': False }
+        ret = {"status": "FAIL", "restart_required": False}
 
         if not self._enabled:
-            _log('WebappUpdater: disabled')
+            _log("WebappUpdater: disabled")
             return ret
 
         git_succeeded = False
@@ -232,7 +251,10 @@ class WebappUpdater(object):
             git_succeeded = False
 
         if not git_succeeded or not db_succeeded:
-            _log('WebappUpdater: failed - [{0},{1}]'.format(git_succeeded, db_succeeded), logLevel=logging.ERROR)
+            _log(
+                "WebappUpdater: failed - [{0},{1}]".format(git_succeeded, db_succeeded),
+                logLevel=logging.ERROR,
+            )
 
             if not db_succeeded:
                 self._db_updater.downgrade(db_revision)
@@ -242,10 +264,10 @@ class WebappUpdater(object):
 
             return ret
 
-        _log('WebappUpdater: success')
+        _log("WebappUpdater: success")
 
-        ret['status'] = 'PASS'
-        ret['restart_required'] = True
+        ret["status"] = "PASS"
+        ret["restart_required"] = True
 
         return ret
 
@@ -255,7 +277,7 @@ class SourceUpdater(object):
     Git-based update system
     """
 
-    def __init__(self, name, project_url='', path=None):
+    def __init__(self, name, project_url="", path=None):
         self._path = None
         self._git = None
 
@@ -264,7 +286,7 @@ class SourceUpdater(object):
                 raise RuntimeError("Shell (sh) is not available on this platform.")
 
             if path is not None:
-                self._git = sh.git.bake(work_tree=path, git_dir=os.path.join(path, '.git'))
+                self._git = sh.git.bake(work_tree=path, git_dir=os.path.join(path, ".git"))
                 self._path = path
             else:
                 self._git = sh.git
@@ -276,7 +298,7 @@ class SourceUpdater(object):
 
         self.name = name
         self.project_url = project_url
-        self._branch = ''
+        self._branch = ""
         self._local_revision = None
         self._remote_revision = None
         self._commits_ahead = 0
@@ -336,36 +358,36 @@ class SourceUpdater(object):
 
         :returns: Returns the update results
         """
-        _log('SourceUpdater: starting..')
+        _log("SourceUpdater: starting..")
 
         ret = {}
 
         if not self._enabled:
-            _log('SourceUpdater: disabled')
+            _log("SourceUpdater: disabled")
             return False
 
         try:
-            self._git.merge('origin/{0}'.format(self.branch))
+            self._git.merge("origin/{0}".format(self.branch))
             git_succeeded = True
 
         except sh.ErrorReturnCode:
             git_succeeded = False
 
         if not git_succeeded:
-            _log('SourceUpdater: failed.', logLevel=logging.ERROR)
+            _log("SourceUpdater: failed.", logLevel=logging.ERROR)
 
             return False
 
-        _log('SourceUpdater: success')
+        _log("SourceUpdater: success")
 
-        ret['status'] = 'PASS'
-        ret['restart_required'] = True
+        ret["status"] = "PASS"
+        ret["restart_required"] = True
 
         return ret
 
     def reset(self, revision):
         try:
-            self._git('reset', '--hard', revision)
+            self._git("reset", "--hard", revision)
         except sh.ErrorReturnCode:
             # TODO do something here?
             pass
@@ -374,15 +396,15 @@ class SourceUpdater(object):
     def commit_count(self) -> Tuple[int, int]:
         """Returns the number of commits behind and ahead of the remote branch."""
         return self._commits_behind, self._commits_ahead
-    
+
     def _retrieve_commit_count(self):
         """
         Retrieves the commit counts
         """
         try:
-            results = self._git('rev-list', '@{upstream}...HEAD', left_right=True).strip()
+            results = self._git("rev-list", "@{upstream}...HEAD", left_right=True).strip()
 
-            self._commits_behind, self._commits_ahead = results.count('<'), results.count('>')
+            self._commits_behind, self._commits_ahead = results.count("<"), results.count(">")
             self._update_status()
         except sh.ErrorReturnCode:
             self._commits_behind, self._commits_ahead = 0, 0
@@ -392,17 +414,17 @@ class SourceUpdater(object):
         Retrieves the current branch
         """
         try:
-            results = self._git('symbolic-ref', 'HEAD', q=True).strip()
-            self._branch = results.replace('refs/heads/', '')
+            results = self._git("symbolic-ref", "HEAD", q=True).strip()
+            self._branch = results.replace("refs/heads/", "")
         except sh.ErrorReturnCode:
-            self._branch = ''
+            self._branch = ""
 
     def _retrieve_local_revision(self):
         """
         Retrieves the current local revision
         """
         try:
-            self._local_revision = self._git('rev-parse', 'HEAD').strip()
+            self._local_revision = self._git("rev-parse", "HEAD").strip()
         except sh.ErrorReturnCode:
             self._local_revision = None
 
@@ -413,9 +435,9 @@ class SourceUpdater(object):
         results = None
 
         try:
-            results = self._git('rev-parse', '--verify', '--quiet', '@{upstream}').strip()
+            results = self._git("rev-parse", "--verify", "--quiet", "@{upstream}").strip()
 
-            if results == '':
+            if results == "":
                 results = None
         except sh.ErrorReturnCode:
             pass
@@ -435,14 +457,14 @@ class SourceUpdater(object):
             # the job but a combination of _iter and _timeout seems to work
             # fine.
             #
-            for c in self._git.fetch('origin', _iter_noblock=True, _timeout=30):
+            for c in self._git.fetch("origin", _iter_noblock=True, _timeout=30):
                 pass
         except sh.TimeoutException:
             pass
         except sh.ErrorReturnCode:
             pass
 
-    def _update_status(self, status=''):
+    def _update_status(self, status=""):
         """
         Updates the status string
         """
@@ -455,15 +477,23 @@ class SourceUpdater(object):
         else:
             temp_status = []
             if self._commits_behind is not None and self._commits_behind > 0:
-                temp_status.append('{0} commit{1} behind'.format(self._commits_behind, '' if self._commits_behind == 1 else 's'))
+                temp_status.append(
+                    "{0} commit{1} behind".format(
+                        self._commits_behind, "" if self._commits_behind == 1 else "s"
+                    )
+                )
 
             if self._commits_ahead is not None and self._commits_ahead > 0:
-                temp_status.append('{0} commit{1} ahead'.format(self._commits_ahead, '' if self._commits_ahead == 1 else 's'))
+                temp_status.append(
+                    "{0} commit{1} ahead".format(
+                        self._commits_ahead, "" if self._commits_ahead == 1 else "s"
+                    )
+                )
 
             if len(temp_status) == 0:
-                self._status = 'Up to date!'
+                self._status = "Up to date!"
             else:
-                self._status += ', '.join(temp_status)
+                self._status += ", ".join(temp_status)
 
     def _check_enabled(self):
         """
@@ -479,13 +509,13 @@ class SourceUpdater(object):
 
         remote_okay = self._check_remotes()
 
-        status = ''
+        status = ""
         if not git_available:
-            status = 'Disabled (Git is unavailable)'
+            status = "Disabled (Git is unavailable)"
         elif self._path is not None and not path_exists:
-            status = 'Disabled (unable to find path)'
+            status = "Disabled (unable to find path)"
         elif not remote_okay:
-            status = 'Disabled (SSH origin)'
+            status = "Disabled (SSH origin)"
 
         return (git_available and remote_okay and (self._path is None or path_exists), status)
 
@@ -503,7 +533,7 @@ class SourceUpdater(object):
             remotes = self._git.remote(v=True)
             for r in remotes.strip().split("\n"):
                 name, path = r.split("\t")
-                if name == 'origin' and '@' in path:
+                if name == "origin" and "@" in path:
                     return False
         except sh.ErrorReturnCode as e:
             if e.exit_code == 128:
@@ -524,7 +554,7 @@ class DBUpdater(object):
         self._config.set_main_option("script_location", "alembic")
 
         self._script = ScriptDirectory.from_config(self._config)
-        self._engine = create_engine(current_app.config.get('SQLALCHEMY_DATABASE_URI'))
+        self._engine = create_engine(current_app.config.get("SQLALCHEMY_DATABASE_URI"))
 
     @property
     def needs_update(self):
@@ -547,7 +577,7 @@ class DBUpdater(object):
     @property
     def status(self):
         """Returns the component status"""
-        return ''
+        return ""
 
     def refresh(self):
         """
@@ -570,31 +600,33 @@ class DBUpdater(object):
         """
 
         if self._current_revision != self._newest_revision:
-            _log('DBUpdater: starting..')
+            _log("DBUpdater: starting..")
 
             try:
                 script_directory = ScriptDirectory.from_config(self._config)
 
                 revision_list = []
-                for script in script_directory.walk_revisions(self._current_revision, self._newest_revision):
+                for script in script_directory.walk_revisions(
+                    self._current_revision, self._newest_revision
+                ):
                     if script.revision != self._current_revision:
                         revision_list.append(script.revision)
 
                 for rev in reversed(revision_list):
                     try:
-                        _log('Applying database revision: {0}'.format(rev))
+                        _log("Applying database revision: {0}".format(rev))
                         command.upgrade(self._config, rev)
                     except sqlalchemy.exc.OperationalError as err:
-                        if 'already exists' in str(err):
-                            _log('Table already exists.. stamping to revision.')
+                        if "already exists" in str(err):
+                            _log("Table already exists.. stamping to revision.")
                             self._stamp_database(rev)
 
             except sqlalchemy.exc.OperationalError as err:
-                _log('DBUpdater: failure - {0}'.format(err), logLevel=logging.ERROR)
+                _log("DBUpdater: failure - {0}".format(err), logLevel=logging.ERROR)
 
                 return False
 
-            _log('DBUpdater: success')
+            _log("DBUpdater: success")
 
         return True
 
@@ -603,14 +635,14 @@ class DBUpdater(object):
             command.downgrade(self._config, rev)
 
         except sqlalchemy.exc.OperationalError as err:
-            _log('DBUpdater: failed to downgrade release: {0}'.format(err), logLevel=logging.ERROR)
+            _log("DBUpdater: failed to downgrade release: {0}".format(err), logLevel=logging.ERROR)
             raise err
 
     def _stamp_database(self, rev):
         try:
             command.stamp(self._config, rev)
         except sqlalchemy.exc.OperationalError as err:
-            _log('DBUpdater: stamp database - failure - {0}'.format(err), logLevel=logging.ERROR)
+            _log("DBUpdater: stamp database - failure - {0}".format(err), logLevel=logging.ERROR)
             raise err
 
     def _open(self):
@@ -636,6 +668,7 @@ class FirmwareUpdater(object):
         self._upload_tick = 0
         self._wait_tick = 0
         self.logger = current_app.logger
+
     def update(self):
         """Update the firmware."""
         try:
@@ -644,12 +677,14 @@ class FirmwareUpdater(object):
             self._wait_tick = 0
 
             # Use the Firmware utility to handle the upload
-            Firmware.upload(current_app.decoder.device._device, self._filename, self._stage_callback)
+            Firmware.upload(
+                current_app.decoder.device._device, self._filename, self._stage_callback
+            )
 
         except Exception as err:
             # Log error and broadcast failure
             current_app.logger.error(f"Error updating firmware: {err}")
-            current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_ERROR', 'error': str(err)})    # type: ignore[attr-defined]
+            current_app.decoder.broadcast("firmwareupload", {"stage": "STAGE_ERROR", "error": str(err)})  # type: ignore[attr-defined]
 
     def _stage_callback(self, stage, **kwargs):
         """
@@ -658,39 +693,38 @@ class FirmwareUpdater(object):
 
     def _handle_stage_start(self):
         self.logger.info("Beginning firmware update process..")
-        current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_START'})   # type: ignore[attr-defined]
+        current_app.decoder.broadcast("firmwareupload", {"stage": "STAGE_START"})  # type: ignore[attr-defined]
 
     def _handle_stage_waiting(self):
         if self._wait_tick == 0:
             self.logger.debug("Waiting for device.")
-        current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_WAITING'})  # type: ignore[attr-defined]
+        current_app.decoder.broadcast("firmwareupload", {"stage": "STAGE_WAITING"})  # type: ignore[attr-defined]
 
     def _handle_stage_boot(self):
         self.logger.debug("Rebooting device..")
-        current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_BOOT'})   # type: ignore[attr-defined]
+        current_app.decoder.broadcast("firmwareupload", {"stage": "STAGE_BOOT"})  # type: ignore[attr-defined]
 
     def _handle_stage_load(self):
         self.logger.debug("Waiting for boot loader..")
-        current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_LOAD'})   # type: ignore[attr-defined]
+        current_app.decoder.broadcast("firmwareupload", {"stage": "STAGE_LOAD"})  # type: ignore[attr-defined]
 
     def _handle_stage_uploading(self, kwargs):
         if self._upload_tick == 0:
             self.logger.info("Uploading firmware.")
         self._upload_tick += 1
         percent = int((self._upload_tick / float(self._firmware_length)) * 100)
-        current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_UPLOADING', 'percent': percent})   # type: ignore[attr-defined]
+        current_app.decoder.broadcast("firmwareupload", {"stage": "STAGE_UPLOADING", "percent": percent})  # type: ignore[attr-defined]
 
     def _handle_stage_done(self):
         self.completed = True
         self.logger.info("Firmware upload complete!")
-        current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_DONE'})   # type: ignore[attr-defined]
+        current_app.decoder.broadcast("firmwareupload", {"stage": "STAGE_DONE"})  # type: ignore[attr-defined]
 
     def _handle_stage_error(self, kwargs):
-        error_msg = kwargs.get('error', '')
+        error_msg = kwargs.get("error", "")
         self.logger.error(f"Error: {error_msg}")
-        current_app.decoder.broadcast('firmwareupload', {'stage': 'STAGE_ERROR', 'error': error_msg})   # type: ignore[attr-defined]
+        current_app.decoder.broadcast("firmwareupload", {"stage": "STAGE_ERROR", "error": error_msg})  # type: ignore[attr-defined]
 
     def _handle_stage_debug(self, kwargs):
-        debug_data = kwargs.get('data', '')
+        debug_data = kwargs.get("data", "")
         self.logger.debug(f"DEBUG: {debug_data}")
-

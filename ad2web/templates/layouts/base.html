@@ -58,18 +58,19 @@
                     </li>
                     {% endif %}
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint.startswith('keypad.') %}active{% endif %}" href="{{ url_for('keypad.index') }}">Keypad</a>
+                       <a class="nav-link {% if request.endpoint and request.endpoint.startswith('keypad.') %}active{% endif %}" href="{{ url_for('keypad.index') }}">Keypad</a>
                     </li>
                     {% if cameras is defined and cameras != 0 %}
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint.startswith('cameras.') %}active{% endif %}" href="{{ url_for('cameras.index') }}">Cameras</a>
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('cameras.') %}active{% endif %}" href="{{ url_for('cameras.index') }}">Cameras</a>
                     </li>
                     {% endif %}
+
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint.startswith('log.') %}active{% endif %}" href="{{ url_for('log.events') }}">Log</a>
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('log.') %}active{% endif %}" href="{{ url_for('log.events') }}">Log</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint.startswith('settings.') %}active{% endif %}" href="{{ url_for('settings.index') }}">Settings</a>
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('settings.') %}active{% endif %}" href="{{ url_for('settings.index') }}">Settings</a>Settings</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('frontend.logout') }}">Log out</a>

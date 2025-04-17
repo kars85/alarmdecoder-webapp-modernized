@@ -16,7 +16,6 @@ from ..settings import Setting
 admin = Blueprint("admin", __name__, url_prefix="/admin")
 
 
-
 @admin.route("/")
 @login_required
 @admin_required
@@ -40,7 +39,9 @@ def list_users():
 def list_failed_logins():
     logins = FailedLogin.query.all()
     use_ssl = Setting.get_by_name("use_ssl", default=False).value
-    return render_template("admin/failed_logins.html", failed_logins=logins, active="users", ssl=use_ssl)
+    return render_template(
+        "admin/failed_logins.html", failed_logins=logins, active="users", ssl=use_ssl
+    )
 
 
 @admin.route("/user/create", methods=["GET", "POST"], defaults={"user_id": None})
@@ -69,6 +70,7 @@ def edit_user(user_id):
 
     use_ssl = Setting.get_by_name("use_ssl", default=False).value
     return render_template("admin/user.html", user_id=user_id, form=form, ssl=use_ssl)
+
 
 @admin.route("/user/remove/<int:user_id>", methods=["GET", "POST"])
 @login_required

@@ -12,75 +12,90 @@ from flask_login import login_required
 from ..extensions import db
 from ..decorators import admin_required
 from .constants import (
-    ARM, DISARM, POWER_CHANGED, ALARM, FIRE, BYPASS, BOOT,
-    CONFIG_RECEIVED, ZONE_FAULT, ZONE_RESTORE, LOW_BATTERY,
-    PANIC, EVENT_TYPES, LRR, READY, RFX, EXP, AUI
+    ARM,
+    DISARM,
+    POWER_CHANGED,
+    ALARM,
+    FIRE,
+    BYPASS,
+    BOOT,
+    CONFIG_RECEIVED,
+    ZONE_FAULT,
+    ZONE_RESTORE,
+    LOW_BATTERY,
+    PANIC,
+    EVENT_TYPES,
+    LRR,
+    READY,
+    RFX,
+    EXP,
+    AUI,
 )
 from .models import EventLogEntry
 from ..logwatch import LogWatcher
 from ..utils import INSTANCE_FOLDER_PATH
 
-log = Blueprint('log', __name__, url_prefix='/log')
+log = Blueprint("log", __name__, url_prefix="/log")
 
 
 @log.context_processor
 def log_context_processor():
     return {
-        'ARM': ARM,
-        'DISARM': DISARM,
-        'POWER_CHANGED': POWER_CHANGED,
-        'ALARM': ALARM,
-        'FIRE': FIRE,
-        'BYPASS': BYPASS,
-        'BOOT': BOOT,
-        'CONFIG_RECEIVED': CONFIG_RECEIVED,
-        'ZONE_FAULT': ZONE_FAULT,
-        'ZONE_RESTORE': ZONE_RESTORE,
-        'LOW_BATTERY': LOW_BATTERY,
-        'PANIC': PANIC,
-        'LRR': LRR,
-        'READY': READY,
-        'EXP': EXP,
-        'RFX': RFX,
-        'AUI': AUI,
-        'TYPES': EVENT_TYPES
+        "ARM": ARM,
+        "DISARM": DISARM,
+        "POWER_CHANGED": POWER_CHANGED,
+        "ALARM": ALARM,
+        "FIRE": FIRE,
+        "BYPASS": BYPASS,
+        "BOOT": BOOT,
+        "CONFIG_RECEIVED": CONFIG_RECEIVED,
+        "ZONE_FAULT": ZONE_FAULT,
+        "ZONE_RESTORE": ZONE_RESTORE,
+        "LOW_BATTERY": LOW_BATTERY,
+        "PANIC": PANIC,
+        "LRR": LRR,
+        "READY": READY,
+        "EXP": EXP,
+        "RFX": RFX,
+        "AUI": AUI,
+        "TYPES": EVENT_TYPES,
     }
 
 
-@log.route('/')
+@log.route("/")
 @login_required
 def events():
-    return render_template('log/events.html', active="events")
+    return render_template("log/events.html", active="events")
 
 
-@log.route('/live')
+@log.route("/live")
 @login_required
 @admin_required
 def live():
-    return render_template('log/live.html', active='live')
+    return render_template("log/live.html", active="live")
 
 
-@log.route('/delete')
+@log.route("/delete")
 @login_required
 @admin_required
 def delete():
     EventLogEntry.query.delete()
     db.session.commit()
-    return redirect(url_for('log.events'))
+    return redirect(url_for("log.events"))
 
 
-@log.route('/alarmdecoder')
+@log.route("/alarmdecoder")
 @login_required
 @admin_required
 def alarmdecoder_logfile():
-    return render_template('log/alarmdecoder.html', active='AlarmDecoder')
+    return render_template("log/alarmdecoder.html", active="AlarmDecoder")
 
 
-@log.route('/alarmdecoder/get_data/<int:lines>', methods=['GET'])
+@log.route("/alarmdecoder/get_data/<int:lines>", methods=["GET"])
 @login_required
 @admin_required
 def get_log_data(lines):
-    log_file = os.path.join(INSTANCE_FOLDER_PATH, 'logs', 'info.log')
+    log_file = os.path.join(INSTANCE_FOLDER_PATH, "logs", "info.log")
     try:
         log_text = LogWatcher.tail(log_file, lines)
     except IOError as err:
@@ -88,7 +103,7 @@ def get_log_data(lines):
     return json.dumps(log_text)
 
 
-@log.route('/retrieve_events_paging_data')
+@log.route("/retrieve_events_paging_data")
 @login_required
 def get_events_paging_data():
     try:
@@ -99,7 +114,7 @@ def get_events_paging_data():
 
 
 class DataTablesServer:
-    Pages = collections.namedtuple('Pages', ['start', 'length'])
+    Pages = collections.namedtuple("Pages", ["start", "length"])
 
     def __init__(self, request):
         self.request_values = request.values
@@ -110,13 +125,12 @@ class DataTablesServer:
 
     def output_result(self):
         return {
-            'sEcho': html.escape(str(int(self.request_values['sEcho']))),
-            'iTotalRecords': int(self.cardinality),
-            'iTotalDisplayRecords': int(self.cardinality_filtered),
-            'aaData': [
-                [str(row.timestamp), EVENT_TYPES[row.type], row.message]
-                for row in self.result_data
-            ]
+            "sEcho": html.escape(str(int(self.request_values["sEcho"]))),
+            "iTotalRecords": int(self.cardinality),
+            "iTotalDisplayRecords": int(self.cardinality_filtered),
+            "aaData": [
+                [str(row.timestamp), EVENT_TYPES[row.type], row.message] for row in self.result_data
+            ],
         }
 
     def run_queries(self):
@@ -128,8 +142,10 @@ class DataTablesServer:
 
         try:
             if search_filter:
-                query = EventLogEntry.query.filter(EventLogEntry.message.like(f'%{search_filter}%'))
-                self.result_data = query.order_by(EventLogEntry.timestamp.desc()).limit(limit).offset(start)
+                query = EventLogEntry.query.filter(EventLogEntry.message.like(f"%{search_filter}%"))
+                self.result_data = (
+                    query.order_by(EventLogEntry.timestamp.desc()).limit(limit).offset(start)
+                )
                 self.cardinality_filtered = query.count()
                 self.cardinality = query.count()
             else:
@@ -141,14 +157,14 @@ class DataTablesServer:
             APP.logger.error(f"Error querying event logs: {e}")
 
     def filtering(self):
-        if 'sSearch' in self.request_values and self.request_values['sSearch']:
-            return html.escape(str(self.request_values['sSearch']))
+        if "sSearch" in self.request_values and self.request_values["sSearch"]:
+            return html.escape(str(self.request_values["sSearch"]))
         return None
 
     def paging(self):
         try:
-            start_str = self.request_values.get('iDisplayStart', '')
-            length_str = self.request_values.get('iDisplayLength', '')
+            start_str = self.request_values.get("iDisplayStart", "")
+            length_str = self.request_values.get("iDisplayLength", "")
             if start_str.isdigit() and length_str.isdigit():
                 return self.Pages(start=int(start_str), length=int(length_str))
         except Exception:

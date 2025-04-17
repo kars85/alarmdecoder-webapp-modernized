@@ -2,35 +2,39 @@ import os
 import io
 import tarfile
 import json
-#import compiler
+
+# import compiler
 import time
 
 from sqlalchemy.orm import class_mapper
 from .utils import tar_add_directory, tar_add_textfile
 from .settings import Setting
-from .settings.constants import get_export_map # Import the function instead
+from .settings.constants import get_export_map  # Import the function instead
 from datetime import datetime
-from .utils import INSTANCE_FOLDER_PATH # Add a dot before utils
+from .utils import INSTANCE_FOLDER_PATH  # Add a dot before utils
 from flask import Response
 
+
 class Exporter(object):
-    EXPORT_PATH = os.path.join(INSTANCE_FOLDER_PATH, 'exports')
+    EXPORT_PATH = os.path.join(INSTANCE_FOLDER_PATH, "exports")
     DAY_SECONDS = 86400
-    WRITE_MODE = 'w:gz'
+    WRITE_MODE = "w:gz"
 
     def __init__(self):
-        self.prefix = 'alarmdecoder-export'
-        self.export_path = Setting.get_by_name('export_local_path',default=self.EXPORT_PATH).value
+        self.prefix = "alarmdecoder-export"
+        self.export_path = Setting.get_by_name("export_local_path", default=self.EXPORT_PATH).value
         self.full_path = None
         self.fileobj = None
         self.filename = None
 
-        if self.export_path != '' and not os.path.exists(self.export_path):
+        if self.export_path != "" and not os.path.exists(self.export_path):
             os.makedirs(self.export_path)
 
     def exportSettings(self):
         self.fileobj = io.BytesIO()
-        self.filename = '{0}-{1}.tar.gz'.format(self.prefix, datetime.now().strftime('%Y%m%d%H%M%S'))
+        self.filename = "{0}-{1}.tar.gz".format(
+            self.prefix, datetime.now().strftime("%Y%m%d%H%M%S")
+        )
         self.full_path = os.path.join(self.export_path, self.filename)
         # ---> ADD THIS LINE TO GET THE MAP <---
         EXPORT_MAP = get_export_map()
@@ -38,7 +42,9 @@ class Exporter(object):
             tar_add_directory(tar, self.prefix)
 
             for export_file, model in EXPORT_MAP.items():  # .items() instead of .iteritems()
-                tar_add_textfile(tar, export_file, self._export_model(model).encode('utf-8'), self.prefix)
+                tar_add_textfile(
+                    tar, export_file, self._export_model(model).encode("utf-8"), self.prefix
+                )
 
     def writeFile(self):
         with open(self.full_path, self.WRITE_MODE) as out:
@@ -51,7 +57,7 @@ class Exporter(object):
             os.remove(self.full_path)
 
     def removeOldFiles(self, days):
-        if self.export_path != '':
+        if self.export_path != "":
             current_time = time.time()
             cutoff = current_time - (days * self.DAY_SECONDS)
 
@@ -60,9 +66,9 @@ class Exporter(object):
             for f in files:
                 fullpath = os.path.join(self.export_path, f)
                 if f.startswith(self.prefix) and os.path.isfile(fullpath):
-                    #file stats
+                    # file stats
                     t = os.stat(fullpath)
-                    #creation time
+                    # creation time
                     c = t.st_ctime
 
                     # delete file if older than days
@@ -70,7 +76,14 @@ class Exporter(object):
                         os.remove(fullpath)
 
     def ReturnResponse(self):
-        return Response(self.fileobj.getvalue(), mimetype='application/x-gzip', headers= { 'Content-Type': 'application/x-gzip', 'Content-Disposition': 'attachment; filename=' + self.filename } )
+        return Response(
+            self.fileobj.getvalue(),
+            mimetype="application/x-gzip",
+            headers={
+                "Content-Type": "application/x-gzip",
+                "Content-Disposition": "attachment; filename=" + self.filename,
+            },
+        )
 
     def _export_model(self, model):
         data = []
@@ -80,11 +93,11 @@ class Exporter(object):
                 value = getattr(res, c.key)
 
                 if isinstance(value, datetime):
-                    value = value.strftime('%Y-%m-%d %H:%M:%S.%f')
+                    value = value.strftime("%Y-%m-%d %H:%M:%S.%f")
                 elif isinstance(value, set):
                     continue
 
                 res_dict[c.key] = value
 
             data.append(res_dict)
-        return json.dumps(data, sort_keys=True, indent=4, separators=(',', ': '), skipkeys=True)
+        return json.dumps(data, sort_keys=True, indent=4, separators=(",", ": "), skipkeys=True)

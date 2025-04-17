@@ -4,8 +4,9 @@ from sqlalchemy import Column
 
 from ..extensions import db
 
+
 class Setting(db.Model):
-    __tablename__ = 'settings'
+    __tablename__ = "settings"
 
     id = Column(db.Integer, primary_key=True, autoincrement=True)
     name = Column(db.String(32), unique=True, nullable=False)
@@ -24,7 +25,7 @@ class Setting(db.Model):
 
     @property
     def value(self):
-        for k in ('int_value', 'string_value'):
+        for k in ("int_value", "string_value"):
             v = getattr(self, k)
             if v is not None:
                 return v

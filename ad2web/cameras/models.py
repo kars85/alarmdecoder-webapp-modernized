@@ -4,8 +4,9 @@ from sqlalchemy import Column
 
 from ..extensions import db
 
+
 class Camera(db.Model):
-    __tablename__ = 'cameras'
+    __tablename__ = "cameras"
 
     id = Column(db.Integer, primary_key=True)
     name = Column(db.String(32), nullable=False)
