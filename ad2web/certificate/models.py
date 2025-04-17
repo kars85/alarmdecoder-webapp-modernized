@@ -34,6 +34,7 @@ class Certificate(db.Model):
     type = Column(SmallInteger, nullable=False)
     certificate = Column(Text, nullable=False)
     key = Column(Text, nullable=True)
+    content = Column(db.LargeBinary, nullable=True)  # ✅ Added to support test data injection
     created_on = Column(TIMESTAMP, server_default=db.func.current_timestamp())
     revoked_on = Column(TIMESTAMP, nullable=True)
     description = Column(String(255), nullable=True)

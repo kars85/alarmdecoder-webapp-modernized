@@ -10,6 +10,7 @@ class Notification(db.Model):
     __tablename__ = "notifications"
 
     id = Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(128), nullable=False)  # optional: required constraint
     description = Column(db.String(255), nullable=False)
     type = Column(db.Integer, nullable=False)
     user_id = Column(db.Integer, db.ForeignKey("users.id"))
@@ -23,10 +24,20 @@ class Notification(db.Model):
     )
 
     def get_setting(self, name, default=None):
-        if name in self.settings.keys():
+        if name in self.settings:
             return self.settings[name].value
-
         return default
+
+    @property
+    def zones(self):
+        """Access zones via settings if present."""
+        return self.get_setting("zones")
+
+    @zones.setter
+    def zones(self, value):
+        if "zones" not in self.settings:
+            self.settings["zones"] = NotificationSetting(name="zones")
+        self.settings["zones"].value = value
 
 
 class NotificationSetting(db.Model):
@@ -46,8 +57,7 @@ class NotificationSetting(db.Model):
             v = getattr(self, k)
             if v is not None:
                 return v
-        else:
-            return None
+        return None
 
     @value.setter
     def value(self, value):

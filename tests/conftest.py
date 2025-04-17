@@ -33,12 +33,19 @@ def app():
             {"name": "system_email_server", "string_value": "localhost"},
         ]
         for row in settings_to_seed:
-            s = Setting(name=row["name"])
-            if "int_value" in row:
-                s.int_value = row["int_value"]
-            if "string_value" in row:
-                s.string_value = row["string_value"]
-            db.session.add(s)
+            existing = Setting.query.filter_by(name=row["name"]).first()
+            if existing:
+                if "int_value" in row:
+                    existing.int_value = row["int_value"]
+                if "string_value" in row:
+                    existing.string_value = row["string_value"]
+            else:
+                s = Setting(name=row["name"])
+                if "int_value" in row:
+                    s.int_value = row["int_value"]
+                if "string_value" in row:
+                    s.string_value = row["string_value"]
+                db.session.add(s)
 
         # Test user
         user = User(
@@ -62,7 +69,8 @@ def app():
         db.session.add(zone)
 
         # Notifications
-        notification = Notification(id=1, name="Zone Alert", enabled=True, type="email", zones={1})
+        notification = Notification(id=1, name="Zone Alert", enabled=True, type="email")
+        notification.zones.append(zone)  # assuming `zone` was added earlier and `notification.zones` is a relationship
         message = NotificationMessage(notification=notification, content="Zone triggered at {{ timestamp }}")
         db.session.add(notification)
         db.session.add(message)

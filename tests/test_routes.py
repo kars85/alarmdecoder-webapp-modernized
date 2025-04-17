@@ -23,6 +23,25 @@ from ad2web.app import create_app
 ])
 def test_route_health(route):
     app, _ = create_app(config={"TESTING": True})
+    with app.app_context():
+        from ad2web.extensions import db
+        db.create_all()
+
+        from ad2web.settings.models import Setting
+        from ad2web.user.models import User, UserDetail
+
+        # Safely seed settings
+        if not Setting.query.filter_by(name="setup_complete").first():
+            db.session.add(Setting(name="setup_complete", int_value=1))
+
+        # Safely seed test user
+        if not User.query.filter_by(email="demo@example.com").first():
+            user = User(name="demo", email="demo@example.com", password="123456", role_code=1, status_code=1)
+            user.user_detail = UserDetail()
+            db.session.add(user)
+
+        db.session.commit()
+
     client = app.test_client()
     response = client.get(route)
-    assert response.status_code in [200, 302, 403], f"{route} failed with {response.status_code}"
+    assert response.status_code in [200, 302, 403]

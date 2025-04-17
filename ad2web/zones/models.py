@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from sqlalchemy import Column
+from sqlalchemy import Column, Integer, String, Boolean  # ✅ Add Boolean
 
 from ..extensions import db
 
@@ -12,7 +12,7 @@ class Zone(db.Model):
     zone_id = Column(db.Integer, unique=True, nullable=False)
     name = Column(db.String(32), nullable=False)
     description = Column(db.String(255))
-
+    enabled = db.Column(Boolean, default=True)  # ✅ Add this line
     @classmethod
     def get_name(cls, id):
         zone = cls.query.filter_by(zone_id=id).first()
