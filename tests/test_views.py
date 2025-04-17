@@ -25,11 +25,12 @@ class TestFrontend(TestCase):
         data = {
             'email': 'new_user@example.com',
             'password': '123456',
+            'password_again': '123456',  # <-- Required by your form
             'name': 'new_user',
             'agree': True,
         }
         response = self.client.post('/signup', data=data, follow_redirects=True)
-        assert b'Sign up' in response.data or b'Create Account' in response.data
+        assert b'Sign in' in response.data or b'Log in' in response.data
         new_user = User.query.filter_by(name=data['name']).first()
         assert new_user is not None
 
