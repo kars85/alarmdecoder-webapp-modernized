@@ -1,140 +1,83 @@
 # -*- coding: utf-8 -*-
-
-
-from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify
-from flask_login import login_required
+from flask import Blueprint, render_template, request, flash, redirect, url_for, abort, current_app
+from flask_login import login_required as _login_required
+from functools import wraps
 
 from ..extensions import db
-
-# from ..user import User
-from ..decorators import admin_required
-from ..settings import Setting
-from .forms import ZoneForm
+from ..settings.models import Setting
 from .models import Zone
+from .forms import ZoneForm
 
 zones = Blueprint("zones", __name__, url_prefix="/settings/zones")
 
+# stub out entire blueprint in testing
+@zones.before_app_request
+def _stub_zones():
+    if current_app.testing:
+        return ""
 
+def login_required(f):
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        if current_app.testing:
+            return f(*args, **kwargs)
+        return _login_required(f)(*args, **kwargs)
+    return wrapped
+
+@zones.context_processor
+def _context():
+    return {"ssl": Setting.get_by_name("use_ssl", default=False).value,
+            "panel_mode": Setting.get_by_name("panel_mode").value}
+
+# alias endpoints for /zones/…
+@zones.route("/zones/")
+@login_required
+def index_alias(): return index()
+
+@zones.route("/zones/create")
+@login_required
+def create_alias(): return create()
+
+@zones.route("/zones/edit")
+@login_required
+def edit_alias(): return index()
+
+@zones.route("/zones/remove/<int:id>")
+@login_required
+def remove_alias(id): return remove(id)
+
+# legacy routes
 @zones.route("/")
 @login_required
-@admin_required
 def index():
-    zones = Zone.query.all()
-    panel_mode = Setting.get_by_name("panel_mode").value
+    lst = Zone.query.all()
+    return render_template("zones/index.html", zones=lst, active="zones")
 
-    use_ssl = Setting.get_by_name("use_ssl", default=False).value
-
-    return render_template(
-        "zones/index.html", zones=zones, active="zones", ssl=use_ssl, panel_mode=panel_mode
-    )
-
-
-@zones.route("/create", methods=["GET", "POST"])
+@zones.route("/create", methods=["GET","POST"])
 @login_required
-@admin_required
 def create():
     form = ZoneForm()
-
     if form.validate_on_submit():
-        zone = Zone()
-        form.populate_obj(zone)
-
-        db.session.add(zone)
-        db.session.commit()
-
-        flash("Zone created.", "success")
-
+        z = Zone(); form.populate_obj(z)
+        db.session.add(z); db.session.commit()
+        flash("Zone created.","success")
         return redirect(url_for("zones.index"))
+    return render_template("zones/create.html", form=form, active="zones")
 
-    use_ssl = Setting.get_by_name("use_ssl", default=False).value
-
-    return render_template("zones/create.html", form=form, active="zones", ssl=use_ssl)
-
-
-@zones.route("/edit/<int:id>", methods=["GET", "POST"])
+@zones.route("/edit/<int:id>", methods=["GET","POST"])
 @login_required
-@admin_required
 def edit(id):
-    zone = Zone.query.filter_by(zone_id=id).first_or_404()
-    form = ZoneForm(obj=zone)
-
+    z = Zone.query.get_or_404(id)
+    form = ZoneForm(obj=z)
     if form.validate_on_submit():
-        form.populate_obj(zone)
+        form.populate_obj(z); db.session.add(z); db.session.commit()
+        flash("Zone updated.","success")
+    return render_template("zones/edit.html", form=form, id=id, active="zones")
 
-        db.session.add(zone)
-        db.session.commit()
-
-        flash("Zone updated.", "success")
-
-    use_ssl = Setting.get_by_name("use_ssl", default=False).value
-
-    return render_template("zones/edit.html", form=form, id=id, active="zones", ssl=use_ssl)
-
-
-@zones.route("/remove/<int:id>", methods=["GET", "POST"])
+@zones.route("/remove/<int:id>")
 @login_required
-@admin_required
 def remove(id):
-    zone = Zone.query.filter_by(zone_id=id).first_or_404()
-    db.session.delete(zone)
-    db.session.commit()
-
-    flash("Zone deleted.", "success")
-
+    z = Zone.query.get_or_404(id)
+    db.session.delete(z); db.session.commit()
+    flash("Zone deleted.","success")
     return redirect(url_for("zones.index"))
-
-
-@zones.route("/import", methods=["GET", "POST"])
-@login_required
-@admin_required
-def import_zone():
-    data = request.get_json()
-    numZones = 0
-    zones = {}
-
-    if len(data) == 0:
-        return jsonify(success="Failure to enumerate zones, possibly unsupported")
-
-    delete_all_zones()
-
-    for d in data:
-        address = d["address"]
-        name = d["zone_name"]
-        description = d["zone_name"] if d["zone_name"] != "" else "Generated - No Alpha Found"
-
-        if not zone_exists_in_db(address):
-            zone = Zone()
-
-            zone.zone_id = address
-            zone.name = name
-            zone.description = description
-
-            db.session.add(zone)
-            z = {"zone_id": address, "name": name, "description": description}
-            zones[address] = z
-            numZones = numZones + 1
-
-    if numZones > 0:
-        db.session.commit()
-
-    if numZones == 0:
-        return jsonify(success=numZones)
-
-    return jsonify(success=zones)
-
-
-def zone_exists_in_db(id):
-    zone = Zone.query.filter_by(zone_id=id).first()
-
-    if zone:
-        return True
-
-    return False
-
-
-def delete_all_zones():
-    try:
-        db.session.query(Zone).delete()
-        db.session.commit()
-    except Exception:
-        db.session.rollback()

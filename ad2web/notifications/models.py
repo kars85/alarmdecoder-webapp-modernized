@@ -30,14 +30,30 @@ class Notification(db.Model):
 
     @property
     def zones(self):
-        """Access zones via settings if present."""
-        return self.get_setting("zones")
+        setting = self.settings.get("zones") if self.settings else None
+        if not setting or not setting.string_value:
+            return []
+        try:
+            return list(map(int, setting.string_value.split(",")))
+        except Exception:
+            return []
 
     @zones.setter
     def zones(self, value):
-        if "zones" not in self.settings:
-            self.settings["zones"] = NotificationSetting(name="zones")
-        self.settings["zones"].value = value
+        # Defensive: ensure settings dict is initialized
+        if self.settings is None:
+            self.settings = {}
+
+        zone_str = ",".join(str(z) for z in value or [])
+        setting = self.settings.get("zones")
+
+        if setting is None:
+            setting = NotificationSetting(name="zones", string_value=zone_str)
+            self.settings["zones"] = setting
+            # Ensure the backref is properly linked for SQLAlchemy
+            setting.notification = self
+        else:
+            setting.string_value = zone_str
 
 
 class NotificationSetting(db.Model):
@@ -73,4 +89,9 @@ class NotificationMessage(db.Model):
     __tablename__ = "notification_messages"
 
     id = Column(db.Integer, primary_key=True)
-    text = Column(db.Text, nullable=False)
+    content = Column(db.Text, nullable=False)
+
+    # 🧩 Fix: add this to support `notification=...` during init
+    notification_id = db.Column(db.Integer, db.ForeignKey("notifications.id"))
+    notification = db.relationship("Notification", backref="messages")
+
