@@ -4,7 +4,7 @@ import subprocess
 import openai
 import sys
 from pathlib import Path
-
+sys.stdout.reconfigure(encoding="utf-8")
 # 1) Configure your key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 if not openai.api_key:
@@ -13,10 +13,18 @@ if not openai.api_key:
 
 # 2) Run pytest once to capture any failures
 def run_pytest():
-    p = subprocess.run(
-        ["pytest", "--maxfail=1", "--disable-warnings", "--tb=short"],
-        capture_output=True, text=True,
-    )
+    """
+    Runs pytest using the current Python interpreter (“python -m pytest …”),
+    so we never depend on “pytest” being on PATH.
+    """
+    cmd = [
+        sys.executable, "-m", "pytest",
+        "--maxfail=1",    # stop after first failure
+        "--disable-warnings",
+        "--tb=short",     # short tracebacks
+    ]
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    # combine stdout+stderr so our log contains everything
     return p.returncode, p.stdout + p.stderr
 
 # 3) Ask OpenAI to propose a patch
@@ -26,8 +34,8 @@ I have a legacy Flask project under version control. When I run `pytest`, I get 
 
 Please propose a unified‑diff patch (git/patch format) that fixes *only* that failure, preserving all existing functionality. Output *only* the diff.
 """
-    resp = openai.ChatCompletion.create(
-        model="gpt-4",
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
         messages=[{"role":"user","content":prompt}],
         temperature=0,
     )
@@ -48,7 +56,7 @@ def main():
         print("✅ All tests already passing.")
         return
 
-    print("❌ Tests failed. Invoking OpenAI to propose a fix…")
+    print("Tests failed. Invoking OpenAI to propose a fix...")
     patch = propose_patch(log)
     if not patch:
         print("⛔️ Got no patch back!", file=sys.stderr)
