@@ -5,12 +5,6 @@ from .forms import LoginForm, SignupForm, RecoverPasswordForm
 
 frontend = Blueprint("frontend", __name__)
 
-@frontend.route("/")
-def index():
-    # This also gets tested via TestFrontend.test_show
-    panel_status = getattr(current_app, "decoder", None)
-    return render_template("index.html", panel_status=str(panel_status))
-
 @frontend.route("/login", methods=["GET", "POST"])
 def login():
     form = LoginForm()

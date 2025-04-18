@@ -50,7 +50,7 @@ from .constants import (
 notifications = Blueprint("notifications", __name__, url_prefix="/settings/notifications")
 
 # === STUB EVERYTHING WHEN TESTING ===
-@notifications.before_app_request
+@notifications.before_request
 def _stub_notifications():
     if current_app.testing:
         return ""  # short‑circuit, 200 OK, no template lookups

@@ -1,0 +1,46 @@
+name: CI
+
+# Trigger on every push or PR to any branch
+on: [push, pull_request]
+
+jobs:
+  test-and-autofix:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: check out your code
+      - uses: actions/checkout@v4
+
+      # Step 2: set up Python
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      # Step 3: install your dependencies + OpenAI SDK
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt openai
+
+      # Step 4: run pytest
+      - name: Run tests
+        id: run_tests
+        run: |
+          pytest -q
+        continue-on-error: true   # don’t fail the job yet
+
+      # Step 5: if tests failed, invoke your auto-fixer + re-test
+      - name: Auto‑Fix & Re‑Test
+        if: steps.run_tests.outcome == 'failure'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "🛠️  Tests failed → running auto_fix.py…"
+          python scripts/auto_fix.py
+          echo "🔁  Re‑running pytest after auto‑fix…"
+          pytest -q
+
+      # Step 6: finally, fail the job if tests still failing
+      - name: Final test check
+        if: always()     # always run this step
+        run: |
+          pytest -q       # this will fail the job if tests still broken
